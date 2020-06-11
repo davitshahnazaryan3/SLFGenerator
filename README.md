@@ -1,3 +1,3 @@
 Storey loss function generator
 
-TODO - crate ReadMe
+TODO - create ReadMe
