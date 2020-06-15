@@ -1,8 +1,11 @@
 """
-Storey-loss-function (SLF) Generator adopted from the work of Sebastiano Zampieri
+Storey-loss-function (SLF) Generator adopted from the work of Sebastiano Zampieri by Davit Shahnazaryan
 
 The tool allows the automatic production of EDP-DV SLFs based on input fragility, consequence and quantity data.
 
+Considerations for double counting should be done at the input level and the consequence function should mirror it.
+
+SLF estimation procedure:       Ramirez and Miranda 2009, CH.3 Storey-based building-specific loss estimation (p. 17)
 FEMA P-58 for fragilities:      https://femap58.atcouncil.org/reports
 For consequence functions:      https://femap58.atcouncil.org/reports
 Python GUI for reference:       https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/
@@ -16,6 +19,8 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import math
+import pickle
+import json
 from scipy import stats
 from scipy.optimize import curve_fit
 import warnings
@@ -24,7 +29,7 @@ warnings.filterwarnings('ignore')
 
 class SLF:
     def __init__(self, project_name, component_data_filename, correlation_tree_filename, edp="IDR", edp_bin=0.1,
-                 correlation="Correlated", n_realizations=20, sflag=False):
+                 correlation="Correlated", n_realizations=20, sflag=True):
         """
         Initialization of the Master Generator
         :param project_name: str                Name of the project to save in the database
@@ -57,7 +62,26 @@ class SLF:
             self.edp_range = np.arange(0, 2.5 + self.edp_bin, self.edp_bin)
         else:
             raise ValueError("[EXCEPTION] Wrong EDP type, must be 'IDR'/'PSD' or 'PFA'")
-
+        
+    def store_results(self, filepath, data, filetype):
+        """
+        Store results in the database
+        :param filepath: str                            Filepath, e.g. "directory/name"
+        :param data:                                    Data to be stored
+        :param filetype: str                            Filetype, e.g. npy, json, pkl, csv
+        :return: None
+        """
+        if filetype == "npy":
+            np.save(f"{filepath}.npy", data)
+        elif filetype == "pkl" or filetype == "pickle":
+            with open(f"{filepath}.pkl", 'wb') as handle:
+                pickle.dump(data, handle)
+        elif filetype == "json":
+            with open(f"{filepath}.json", "w") as json_file:
+                json.dump(data, json_file)
+        elif filetype == "csv":
+            data.to_csv(f"{filepath}.csv")
+            
     def get_component_data(self):
         """
         Gets component information from the user provided .csv file
@@ -242,7 +266,7 @@ class SLF:
             for item in range(num_items):
                 damage_state[item+1] = {}
                 for n in range(self.n_realizations):
-                    if matrix[item][0] == item + 1:
+                    if corr_tree[item][0] == item + 1:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
                         for ds in range(4, -1, -1):
@@ -274,7 +298,7 @@ class SLF:
             for j in damage_state[i]:
                 test += sum(damage_state[i][j] == -1)
         
-        # Star the iterations
+        # Start the iterations
         min_ds = {}
         y_new = {}
         while test != 0:
@@ -361,7 +385,8 @@ class SLF:
                         for idx in idx_list:
                             a = np.random.normal(means_cost[item][ds-1], covs_cost[item][ds-1]*means_cost[item][ds-1])
                             while a < 0:
-                                a = np.random.normal(means_cost[item][ds-1], covs_cost[item][ds-1]*means_cost[item][ds-1])
+                                a = np.random.normal(means_cost[item][ds-1], covs_cost[item][ds-1]*
+                                                     means_cost[item][ds-1])
                             repair_cost[item+1][n][idx] = a
         
         # Evaluate the total damage cost multiplying the individual cost by each element quantity
@@ -390,9 +415,9 @@ class SLF:
         
         total_loss_ratio = {}
         for n in range(self.n_realizations):
-            total_loss_ratio[n] = total_loss_storey[n]/total_replacement_cost
+            total_loss_storey_ratio[n] = total_loss_storey[n]/total_replacement_cost
         
-        return loss_ratios, total_loss_storey, total_loss_ratio
+        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost
     
     def perform_regression(self, total_loss_storey, total_loss_ratio, percentiles=None):
         """
@@ -429,7 +454,71 @@ class SLF:
         
         return losses, losses_fitted
     
+    def get_in_euros(self, losses, total_replacement_cost):
+        """
+        Transforms losses to Euros
+        :param losses: dict                         Fitted EDP-DV functions
+        :param total_replacement_cost: float        Total replacement cost
+        :return: dict                               Fitted EDP-DV functions in Euros
+        """
+        for key in losses.keys():
+            losses[key] = losses[key]*total_replacement_cost
+        return losses
     
+    def master(self, sensitivityflag=False):
+        """
+        Runs the whole framework
+        :param sensitivityflag: bool                Whether to run both 'independent' and 'correlated' options
+        :return: dict                               Fitted EDP-DV functions
+        """
+        # Peform sensitivity, i.e. run both independent and correlated options
+        if sensitivityflag:
+            correlation = ["Independent", "Correlated"]
+            for c in correlation:
+                self.correlation = c
+                print(f"[INITIATE] Running assuming {self.correlation} components")
+                component_data = self.get_component_data()
+                matrix = self.get_correlation_tree(component_data)
+                fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data)
+                damage_probs = self.get_DS_probs(component_data, fragilities)       # unnecessary, to be removed
+                damage_state = self.perform_Monte_Carlo(fragilities, matrix)
+                damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
+                loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost = \
+                    self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+                losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio)
+                edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
+                if self.sflag:
+                    outputs = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities, 
+                               'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted, 
+                               'edp_dv_euro': edp_dv_functions}
+                    self.store_results(self.database_dir/f"{self.project_name}_{self.correlation}", outputs, "pkl")
+                    print("[SUCCESS] Outputs have been stored!")
+                else:
+                    print("[SUCCESS] Successful completion, outputs have not been stored!")
+        else:
+            print(f"[INITIATE] Running assuming {self.correlation} components")
+            component_data = self.get_component_data()
+            matrix = self.get_correlation_tree(component_data)
+            fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data)
+            damage_probs = self.get_DS_probs(component_data, fragilities)
+            damage_state = self.perform_Monte_Carlo(fragilities, matrix)
+            damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
+            loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost = \
+                self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+            losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio)
+            edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
+            if self.sflag:
+                outputs = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities, 
+                           'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted, 
+                           'edp_dv_euro': edp_dv_functions}
+                self.store_results(self.database_dir/f"{self.project_name}_{self.correlation}", outputs, "pkl")
+                print("[SUCCESS] Outputs have been stored!")
+            else:
+                print("[SUCCESS] Successful completion, outputs have not been stored!")
+        
+        return losses, losses_fitted, edp_dv_functions
+
+
 if __name__ == "__main__":
     """
     Takes as input:
@@ -439,12 +528,18 @@ if __name__ == "__main__":
     nrealizations               number of simulations per edp
     """
 
-    slf = SLF("Case1", "component_data.csv", "correlation_tree.csv", correlation="Correlated")
-    component_data = slf.get_component_data()
-    matrix = slf.get_correlation_tree(component_data)
-    fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data)
-    damage_probs = slf.get_DS_probs(component_data, fragilities)
-    damage_state = slf.perform_Monte_Carlo(fragilities, matrix)
-    damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
-    loss_ratios, total_loss_storey, total_loss_ratio = slf.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-    losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio)
+    slf = SLF("Case1", "component_data.csv", "correlation_tree.csv", correlation="Correlated", n_realizations=200,
+              sflag=False)
+    run_master = True
+    if run_master:
+        losses, losses_fitted, edp_dv_functions = slf.master(sensitivityflag=False)
+    else:
+        component_data = slf.get_component_data()
+        matrix = slf.get_correlation_tree(component_data)
+        fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data)
+        damage_probs = slf.get_DS_probs(component_data, fragilities)
+        damage_state = slf.perform_Monte_Carlo(fragilities, matrix)
+        damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
+        loss_ratios, total_loss_storey, total_loss_ratio, total_loss = slf.calculate_loss(component_data, damage_state,
+                                                                                          means_cost, covs_cost)
+        losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio)

@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="eed5e2be-c5b5-44da-8610-2de87cbd060c" name="Default Changelist" comment="" />
+    <list default="true" id="eed5e2be-c5b5-44da-8610-2de87cbd060c" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/Database/Case1_Correlated.pkl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Database/Case1_Independent.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slf.py" beforeDir="false" afterPath="$PROJECT_DIR$/slf.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -30,16 +36,19 @@
     </option>
   </component>
   <component name="ProjectId" id="1d2LfMEIeX48zbswG9Qr9na2ddQ" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showExcludedFiles" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/slf.py" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -47,7 +56,7 @@
     </key>
   </component>
   <component name="RunManager">
-    <configuration name="Unnamed" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+    <configuration name="slf" type="PythonConfigurationType" factoryName="Python">
       <module name="SLFGenerator" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -95,14 +104,15 @@
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="slf generator init" />
     <option name="LAST_COMMIT_MESSAGE" value="slf generator init" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="2334" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1591778609010">
+    <state x="2334" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1592206438861">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
-    <state x="2334" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1591778609010" />
+    <state x="2334" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592206438861" />
     <state x="614" y="121" key="CommitChangelistDialog2" timestamp="1591903088645">
       <screen x="0" y="0" width="1920" height="1050" />
     </state>
@@ -111,14 +121,14 @@
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
     <state x="2660" y="279" key="FileChooserDialogImpl/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1591778607843" />
-    <state x="2381" y="167" key="SettingsEditor" timestamp="1591621234182">
+    <state x="2182" y="108" key="SettingsEditor" timestamp="1592206422327">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
-    <state x="2381" y="167" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1591621234182" />
-    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog" timestamp="1591902391967">
+    <state x="2182" y="108" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592206422327" />
+    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog" timestamp="1592206151806">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
     <state x="2576" y="348" key="com.intellij.ide.util.TipDialog/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1591777971535" />
-    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1591902391967" />
+    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592206151806" />
   </component>
 </project>
