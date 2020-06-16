@@ -1,6 +1,6 @@
 ### Storey-loss-function (SLF) Generator
 
-The tool allows the automatic production of EDP-DV SLFs based on input fragility, consequence and quantity data.
+The tool allows the automated production of EDP-DV functions based on input fragility, consequence and quantity data.
 
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 
@@ -11,6 +11,8 @@ Considerations for double counting should be done at the input level and the con
 [Consequence functions](https://femap58.atcouncil.org/reports)
 
 [Python GUI for reference](https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/)
+
+[Repair costs - Central Italy](https://sisma2016.gov.it/wp-content/uploads/2019/12/Allegato-3-Prezzario-Cratere_2018-Finale.pdf)
 
 **Acronyms**
 
@@ -85,7 +87,7 @@ matrix, consequence functions*
                 Otherwise assign repair cost -1 as a placeholder for later filling
                 
                 Parse for other DS (i.e. 1, 2, 3, 4, 5)
-                Populate the repair cost matrix with a cost generated as a random normal with repair cost mean and 
+                Populate the repair cost matrix with a cost generated as a random normal/lognormal with repair cost mean and 
                 covariance
                 
                 OUTPUT: repair cost matrix, dimensions(item, simulation, EDP range)
