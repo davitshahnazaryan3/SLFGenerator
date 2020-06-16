@@ -1,5 +1,5 @@
 """
-Storey-loss-function (SLF) Generator adopted from the work of Sebastiano Zampieri by Davit Shahnazaryan
+Storey-loss-function (SLF) Generator adopted from the work of Sebastiano Zampieri by Davit Shahnazaryan 
 The tool allows the automatic production of EDP-DV SLFs based on input fragility, consequence and quantity data.
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 SLF estimation procedure:       Ramirez and Miranda 2009, CH.3 Storey-based building-specific loss estimation (p. 17)
