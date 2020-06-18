@@ -1,0 +1,7 @@
+ITEM,ID,EDP,Component,Group,Quantity,"DS1, Median Demand","DS2, Median Demand","DS3, Median Demand","DS4, Median Demand","DS5, Median Demand","DS1, Total Dispersion (Beta)","DS2, Total Dispersion (Beta)","DS3, Total Dispersion (Beta)","DS4, Total Dispersion (Beta)","DS5, Total Dispersion (Beta)","DS1, Repair COST","DS2, Repair COST","DS3, Repair COST","DS4, Repair COST","DS5, Repair COST","DS1, COST Dispersion (Beta)","DS2, COST Dispersion (Beta)","DS3, COST Dispersion (Beta)","DS4, COST Dispersion (Beta)","DS5, COST Dispersion (Beta)","DS1, best fit","DS2, best fit","DS3, best fit","DS4, best fit","DS5, best fit"
+1,B1031.001,IDR,S,1,9.96,0.04,0.08,0.11,,,0.4,0.4,0.4,,,10648,10912,10824,,,0.37,0.38,0.38,,,normal,normal,normal,,
+2,B1031.021a,IDR,S,1,0.76,0.02,0.05,,,,0.4,0.4,,,,8316,9856,,,,0.32,0.3,,,,normal,lognormal,,,
+3,B1033.013a,IDR,S,1,0.56,0.0035,0.0092,0.0167,0.0223,,0.45,0.3,0.15,0.15,,27192,33264,34672,34672,,0.33,0.31,0.3,0.3,,normal,normal,normal,normal,
+4,B2011.011a,IDR,NS,2,8.52,0.0139,0.0179,,,,0.25,0.25,,,,2763.2,3291.2,,,,0.24,0.1,,,,lognormal,normal,,,
+5,C1011.001a,IDR,NS,2,1,0.005,0.01,0.021,,,0.4,0.3,0.2,,,1584,3784,7911.2,,,0.48,0.56,0.2,,,normal,lognormal,lognormal,,
+6,C2011.001b,IDR,NS,2,0.15,0.005,0.017,0.028,,,0.6,0.6,0.45,,,1724.8,4840,17424,,,0.46,0.49,0.1,,,normal,normal,lognormal,,

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="eed5e2be-c5b5-44da-8610-2de87cbd060c" name="Default Changelist" comment="" />
+    <list default="true" id="eed5e2be-c5b5-44da-8610-2de87cbd060c" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -41,7 +43,7 @@
   <component name="PropertiesComponent">
     <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/slf.py" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../VIZ" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
@@ -111,10 +113,11 @@
       <screen x="0" y="0" width="1920" height="1050" />
     </state>
     <state x="614" y="121" key="CommitChangelistDialog2/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1591903088645" />
-    <state x="2660" y="279" key="FileChooserDialogImpl" timestamp="1592322736389">
+    <state x="2660" y="279" key="FileChooserDialogImpl" timestamp="1592330335209">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
-    <state x="2660" y="279" key="FileChooserDialogImpl/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592322736389" />
+    <state x="740" y="279" key="FileChooserDialogImpl/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1592330240729" />
+    <state x="2660" y="279" key="FileChooserDialogImpl/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592330335209" />
     <state width="1899" height="285" key="GridCell.Tab.0.bottom" timestamp="1592326558507">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
@@ -131,14 +134,15 @@
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
     <state width="1899" height="285" key="GridCell.Tab.0.right/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592326558507" />
-    <state x="2182" y="108" key="SettingsEditor" timestamp="1592206422327">
+    <state x="2182" y="108" key="SettingsEditor" timestamp="1592330660546">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
-    <state x="2182" y="108" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592206422327" />
-    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog" timestamp="1592320353445">
+    <state x="262" y="108" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1592330252523" />
+    <state x="2182" y="108" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592330660546" />
+    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog" timestamp="1592330327931">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
     <state x="2576" y="348" key="com.intellij.ide.util.TipDialog/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1591777971535" />
-    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592320353445" />
+    <state x="2576" y="348" key="com.intellij.ide.util.TipDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592330327931" />
   </component>
 </project>

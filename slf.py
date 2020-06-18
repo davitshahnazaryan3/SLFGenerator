@@ -29,9 +29,10 @@ warnings.filterwarnings('ignore')
 
 class SLF:
     def __init__(self, project_name, component_data_filename, correlation_tree_filename, edp_bin=0.1,
-                 correlation="Correlated", n_realizations=20, conversion=1.0, sflag=True):
+                 correlation="Correlated", n_realizations=20, conversion=1.0, do_grouping=True, sflag=True):
         """
         Initialization of the Master Generator
+        TODO, add option to assign Independent or Correlated for each performance group or among performance groups
         :param project_name: str                Name of the project to save in the database
         :param component_data_filename: str     Component data file name, e.g. "*.csv"
         :param correlation_tree_filename: str   Correlation tree file name, e.g. "*.csv"
@@ -41,6 +42,7 @@ class SLF:
         :param conversion: float                Conversion factor from usd to euro, e.g. if provided in euro, use 1.0;
                                                 if 1 usd = 0.88euro, use 0.88
                                                 or use 1.0 if ratios are used directly
+        :param do_grouping: bool                Whether to do performance grouping or use the entire component database
         :param sflag: bool                      Save data
         """
         self.dir = Path.cwd()
@@ -52,6 +54,7 @@ class SLF:
         self.correlation = correlation
         self.n_realizations = n_realizations
         self.conversion = conversion
+        self.do_grouping = do_grouping
         self.sflag = sflag
         self.edp_range = None
         
@@ -69,7 +72,7 @@ class SLF:
         if edp == "IDR" or edp == "PSD":
             # stop calculation at 10% drift
             edp_bin = self.edp_bin/100.
-            self.edp_range = np.arange(0, 0.1 + edp_bin, edp_bin)
+            self.edp_range = np.arange(0, 0.2 + edp_bin, edp_bin)
         elif edp == "PFA":
             # stop calculation at 2.5g of acceleration
             edp_bin = 0.25
@@ -108,10 +111,20 @@ class SLF:
         Current version: Direct manipulation within the .csv file, add new entries with empty IDs (the tool with assign
         the IDs automatically) or select ID from the drop down list, which will select the already existing one.
         New created entries will not be saved within the database, and will be deleted if the .csv file is modified.
+
+        Notes on creation of a correlation tree: Make sure that the MIN DS assigned does not exceed the possible Damage States
+        defined for the element. Essentially, if a component is dependent on another component and has only one DS, i.e. DS1, which
+        occurs only if the causation element is for example at its DS3, then the following would be true. And Item3 would be damaged
+        earlier and has more DSs. The software will not detec any errors, so it depends on the user.
+        Item ID: 	Dependant on item 	MIN DS|DS0 	MIN DS|DS1 	MIN DS|DS2 	MIN DS|DS3 	MIN DS|DS4 	MIN DS|DS5
+        Item 1: 	Independent 		Independent	Independent Independent Independent Independent Independent
+		Item 2:		1					Undamaged 	Undamaged  	Undamaged 	DS1 		DS1 		DS1
+		Item 3: 	1 					Undamaged 	Undamaged 	DS1 		DS2 		DS3 		DS3
+		
         :return: DataFrame                  DataFrame containing the component data
         """
         component_data = pd.read_csv(self.dir/"client"/self.component_data_filename)
-        if len(component_data.keys()) != 30:
+        if len(component_data.keys()) != 31:
             raise ValueError("[EXCEPTION] Unexpected number of features in the components DataFrame")
             
         # Check for any missing values in the best_fit features
@@ -122,6 +135,9 @@ class SLF:
         # Replace all nan with 0.0 for the rest of the DataFrame
         component_data.fillna(0.0, inplace=True)
         
+        # Check if grouping of components was assigned
+        # TODO, add grouping by user option, if not assigned, do automatic performance grouping - current Group feature is unused
+        
         return component_data
     
     def group_components(self, component_data):
@@ -130,11 +146,16 @@ class SLF:
         :param component_data: DataFrame        DataFrame containing the component data
         :return: dict                           Dictionary containing DataFrames for each performance group
         """
-        idr_s = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "S")]
-        idr_ns = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "NS")]
-        pfa_ns = component_data[(component_data["EDP"] == "PFA") & (component_data["Component"] == "NS")]
-        
-        component_groups = {"IDR S": idr_s, "IDR NS": idr_ns, "PFA NS": pfa_ns}
+        if self.do_grouping:
+            idr_s = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "S")]
+            idr_ns = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "NS")]
+            pfa_ns = component_data[(component_data["EDP"] == "PFA") & (component_data["Component"] == "NS")]
+            
+            component_groups = {"IDR S": idr_s, "IDR NS": idr_ns, "PFA NS": pfa_ns}
+        else:
+            key = component_data["EDP"].iloc[0]
+            component_groups = {key: component_data}
+            
         return component_groups
     
     def get_correlation_tree(self, component_data):
@@ -230,7 +251,7 @@ class SLF:
         covs_cost = np.zeros((len(component_data), 5))
         
         # Deriving fragility functions
-        data = component_data.values[:, 2:]
+        data = component_data.values[:, 3:]
         for item in range(len(data)):
             for ds in range(5):
                 means_fr[item][ds] = data[item][ds]
@@ -316,7 +337,7 @@ class SLF:
             for item in fragilities["ITEMs"]:
                 damage_state[item] = {}
                 for n in range(self.n_realizations):
-                    if corr_tree[idx][0] == item + 1:
+                    if corr_tree[idx][0] == item:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
                         for ds in range(4, -1, -1):
@@ -341,7 +362,6 @@ class SLF:
         :param fragilities: dict                Fragilities of all components at all DSs
         :return: dict                           Damage states of each component for each simulation
         """
-        
         num_items = len(damage_state)
         ds_range = np.arange(0, 6, 1)
         iteration = 1
@@ -484,7 +504,7 @@ class SLF:
         for n in range(self.n_realizations):
             total_loss_storey_ratio[n] = total_loss_storey[n]/total_replacement_cost
         
-        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost
+        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost
     
     def perform_regression(self, total_loss_storey, total_loss_ratio, edp, percentiles=None):
         """
@@ -536,9 +556,10 @@ class SLF:
         :param total_replacement_cost: float        Total replacement cost
         :return: dict                               Fitted EDP-DV functions in Euros
         """
+        edp_dv = losses.copy()
         for key in losses.keys():
-            losses[key] = losses[key]*total_replacement_cost
-        return losses
+            edp_dv[key] = losses[key]*total_replacement_cost
+        return edp_dv
     
     def get_slfs(self, outputs):
         """
@@ -547,7 +568,7 @@ class SLF:
         :return: DataFrame                          Normalized mean SLFs of all performance groups 
         """
         total_story_cost_actual = sum([outputs[key]['total_replacement_cost'] for key in outputs])
-        total_story_cost = sum(outputs[key]['edp_dv_fitted']['mean'][-1] for key in outputs)
+        total_story_cost = sum(outputs[key]['edp_dv_euro']['mean'][-1] for key in outputs)
         
         print(f"[WARNING] Actual total story cost is {total_story_cost_actual:.0f} with respect to "
               f"{total_story_cost:.0f} used for normalization")
@@ -580,30 +601,31 @@ class SLF:
                 outputs = {}
                 # TODO, make sure that sequence of performance groups matches sequence of items_per_group
                 for group in component_groups:
-                    component_data = component_groups[group]
-                    matrix = self.get_correlation_tree(component_data)
-                    edp = group[0:3]
-                    self.get_edp_range(edp)
-                    
-                    # Get number of items of the previous performance group
-                    if cnt == 0:
-                        n_items = 0
-                    else:
-                        n_items = sum(items_per_group[:cnt])
-                    
-                    fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
-                    damage_probs = self.get_DS_probs(component_data, fragilities)
-                    damage_state = self.perform_Monte_Carlo(fragilities, matrix)
-                    damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
-                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost = \
-                        self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-                    losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
-                    edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
-                    outputs[group] = {'component': component_data, 'correlation_tree': matrix,
-                                      'fragilities': fragilities, 'damage_states': damage_state, 'losses': losses,
-                                      'edp_dv_fitted': losses_fitted, 'edp_dv_euro': edp_dv_functions,
-                                      'total_replacement_cost': total_replacement_cost}
-                    cnt += 1
+                    if not component_groups[group].empty:
+                        component_data = component_groups[group]
+                        matrix = self.get_correlation_tree(component_data)
+                        edp = group[0:3]
+                        self.get_edp_range(edp)
+                        
+                        # Get number of items of the previous performance group
+                        if cnt == 0:
+                            n_items = 0
+                        else:
+                            n_items = sum(items_per_group[:cnt])
+                            
+                        fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
+                        damage_probs = self.get_DS_probs(component_data, fragilities)
+                        damage_state = self.perform_Monte_Carlo(fragilities, matrix)
+                        damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
+                        loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
+                            self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+                        losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
+                        edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
+                        outputs[group] = {'component': component_data, 'correlation_tree': matrix,
+                                          'fragilities': fragilities, 'damage_states': damage_state, 'losses': losses,
+                                          'edp_dv_fitted': losses_fitted, 'edp_dv_euro': edp_dv_functions,
+                                          'total_replacement_cost': total_replacement_cost, 'total_loss_storey': total_loss_storey}
+                        cnt += 1
                     
                 slfs = self.get_slfs(outputs)
                 outputs['SLFs'] = slfs
@@ -627,29 +649,31 @@ class SLF:
             outputs = {}
             # TODO, make sure that sequence of performance groups matches sequence of items_per_group
             for group in component_groups:
-                component_data = component_groups[group]
-                matrix = self.get_correlation_tree(component_data)
-                edp = group[0:3]
-                self.get_edp_range(edp)
-                # Get number of items of the previous performance group
-                if cnt == 0:
-                    n_items = 0
-                else:
-                    n_items = sum(items_per_group[:cnt])
-                
-                fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
-                damage_probs = self.get_DS_probs(component_data, fragilities)
-                damage_state = self.perform_Monte_Carlo(fragilities, matrix)
-                damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
-                loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost = \
-                    self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-                losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
-                edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
-                outputs[group] = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities,
-                                   'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted,
-                                   'edp_dv_euro': edp_dv_functions, 'total_replacement_cost': total_replacement_cost}
-                
-                cnt += 1
+                if not component_groups[group].empty:
+                    component_data = component_groups[group]
+                    matrix = self.get_correlation_tree(component_data)
+                    edp = group[0:3]
+                    self.get_edp_range(edp)
+                    # Get number of items of the previous performance group
+                    if cnt == 0:
+                        n_items = 0
+                    else:
+                        n_items = sum(items_per_group[:cnt])
+                    
+                    fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
+                    damage_probs = self.get_DS_probs(component_data, fragilities)
+                    damage_state = self.perform_Monte_Carlo(fragilities, matrix)
+                    damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
+                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
+                        self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+                    losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
+                    edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
+                    outputs[group] = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities,
+                                       'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted,
+                                       'edp_dv_euro': edp_dv_functions, 'total_replacement_cost': total_replacement_cost, 
+                                       'total_loss_storey': total_loss_storey}
+                    
+                    cnt += 1
             
             slfs = self.get_slfs(outputs)
             outputs['SLFs'] = slfs
@@ -671,8 +695,8 @@ if __name__ == "__main__":
     edp_bin                     Step of edp
     n_realizations              number of simulations per edp
     """
-    slf = SLF("Case1", "component_data.csv", "correlation_tree.csv", correlation="Independent", n_realizations=100,
-              sflag=True)
+    slf = SLF("Correlated", "component_data2.csv", "correlation_tree2.csv", correlation="Correlated", n_realizations=20,
+              sflag=True, do_grouping=False)
     run_master = True
     if run_master:
         outputs = slf.master(sensitivityflag=False)
@@ -686,28 +710,31 @@ if __name__ == "__main__":
         cnt = 0
         ouputs = {}
         for group in component_groups:
-            component_data = component_groups[group]
-            matrix = slf.get_correlation_tree(component_data)
-            edp = group[0:3]
-            slf.get_edp_range(edp)
-            
-            if cnt == 0:
-                n_items = 0
-            else:
-                n_items = sum(items_per_group[:cnt])
+            if not component_groups[group].empty:
+                component_data = component_groups[group]
+                matrix = slf.get_correlation_tree(component_data)
+                edp = group[0:3]
+                slf.get_edp_range(edp)
                 
-            fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data, n_items)
-            damage_probs = slf.get_DS_probs(component_data, fragilities)
-            damage_state = slf.perform_Monte_Carlo(fragilities, matrix)
-            damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
-            loss_ratios, total_loss_storey, total_loss_ratio, total_loss = slf.calculate_loss(component_data,
-                                                                                              damage_state,
-                                                                                              means_cost, covs_cost)
-            losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
-            cnt += 1
-
-            if cnt == 1:
-                break
+                if cnt == 0:
+                    n_items = 0
+                else:
+                    n_items = sum(items_per_group[:cnt])
+                
+                fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data, n_items)
+                damage_probs = slf.get_DS_probs(component_data, fragilities)
+                damage_state = slf.perform_Monte_Carlo(fragilities, matrix)
+                damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
+                loss_ratios, total_loss_storey, total_loss_ratio, total_loss, repair_cost = slf.calculate_loss(component_data,
+                                                                                                  damage_state,
+                                                                                                  means_cost, covs_cost)
+                losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
+                edp_dv_functions = slf.get_in_euros(losses_fitted, total_loss)
+                
+                cnt += 1
+    
+                if cnt == 1:
+                    break
 
 
 
