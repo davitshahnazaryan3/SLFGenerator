@@ -2,7 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="eed5e2be-c5b5-44da-8610-2de87cbd060c" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/slf_gui.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Database/Correlated_Correlated.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/Database/Correlated_Correlated.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slf.py" beforeDir="false" afterPath="$PROJECT_DIR$/tools/slf.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,15 +46,16 @@
   <component name="PropertiesComponent">
     <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../VIZ" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/slf_gui.py" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\GitHub\SLFGenerator\tools" />
       <recent name="E:\GitHub\SLFGenerator" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.slf_gui">
     <configuration name="slf" type="PythonConfigurationType" factoryName="Python">
       <module name="SLFGenerator" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -64,7 +68,7 @@
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/slf.py" />
+      <option name="SCRIPT_NAME" value="E:\GitHub\SLFGenerator\tools\slf.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -73,6 +77,31 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="slf_gui" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="SLFGenerator" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="C:\Users\Zara\Anaconda3\python.exe" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/slf_gui.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.slf" />
+      <item itemvalue="Python.slf_gui" />
+    </list>
   </component>
   <component name="ServiceViewManager">
     <option name="viewStates">
@@ -105,19 +134,21 @@
     <option name="LAST_COMMIT_MESSAGE" value="slf generator init" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="2334" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1592322738478">
-      <screen x="1920" y="0" width="1920" height="1050" />
+    <state x="414" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1592990143707">
+      <screen x="0" y="0" width="1920" height="1050" />
     </state>
     <state x="2334" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592322738478" />
+    <state x="414" y="179" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1050@0.0.1920.1050" timestamp="1592990143707" />
     <state x="614" y="121" key="CommitChangelistDialog2" timestamp="1591903088645">
       <screen x="0" y="0" width="1920" height="1050" />
     </state>
     <state x="614" y="121" key="CommitChangelistDialog2/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1591903088645" />
-    <state x="2660" y="279" key="FileChooserDialogImpl" timestamp="1592330335209">
-      <screen x="1920" y="0" width="1920" height="1050" />
+    <state x="740" y="279" key="FileChooserDialogImpl" timestamp="1592990140905">
+      <screen x="0" y="0" width="1920" height="1050" />
     </state>
     <state x="740" y="279" key="FileChooserDialogImpl/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1592330240729" />
     <state x="2660" y="279" key="FileChooserDialogImpl/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592330335209" />
+    <state x="740" y="279" key="FileChooserDialogImpl/0.0.1920.1050@0.0.1920.1050" timestamp="1592990140905" />
     <state width="1899" height="285" key="GridCell.Tab.0.bottom" timestamp="1592326558507">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
@@ -134,11 +165,12 @@
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>
     <state width="1899" height="285" key="GridCell.Tab.0.right/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592326558507" />
-    <state x="2182" y="108" key="SettingsEditor" timestamp="1592330660546">
-      <screen x="1920" y="0" width="1920" height="1050" />
+    <state x="262" y="108" key="SettingsEditor" timestamp="1592989901915">
+      <screen x="0" y="0" width="1920" height="1050" />
     </state>
     <state x="262" y="108" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@0.0.1920.1050" timestamp="1592330252523" />
     <state x="2182" y="108" key="SettingsEditor/0.0.1920.1050/1920.0.1920.1050@1920.0.1920.1050" timestamp="1592330660546" />
+    <state x="262" y="108" key="SettingsEditor/0.0.1920.1050@0.0.1920.1050" timestamp="1592989901915" />
     <state x="2576" y="348" key="com.intellij.ide.util.TipDialog" timestamp="1592330327931">
       <screen x="1920" y="0" width="1920" height="1050" />
     </state>

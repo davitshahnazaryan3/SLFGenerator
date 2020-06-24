@@ -8,7 +8,7 @@ Considerations for double counting should be done at the input level and the con
 SLF estimation procedure:       Ramirez and Miranda 2009, CH.3 Storey-based building-specific loss estimation (p. 17)
 FEMA P-58 for fragilities:      https://femap58.atcouncil.org/reports
 For consequence functions:      https://femap58.atcouncil.org/reports
-Python GUI for reference:       https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/
+Python tools for reference:       https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/
                                 https://www.youtube.com/watch?v=627VBkAhKTc
 
 EDP:    Engineering Demand Parameter
@@ -107,7 +107,7 @@ class SLF:
                     2. View existing components (e.g., FEMA P-58 PACT or added previously by the user)
                     3. Edit an existing component
                     4. Delete an existing component
-                    5. EDP and EDP bin should be visible in the GUI, currently it is not an input argument
+                    5. EDP and EDP bin should be visible in the tools, currently it is not an input argument
         Current version: Direct manipulation within the .csv file, add new entries with empty IDs (the tool with assign
         the IDs automatically) or select ID from the drop down list, which will select the already existing one.
         New created entries will not be saved within the database, and will be deleted if the .csv file is modified.
@@ -735,25 +735,3 @@ if __name__ == "__main__":
     
                 if cnt == 1:
                     break
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
