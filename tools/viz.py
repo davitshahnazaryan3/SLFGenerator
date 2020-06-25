@@ -14,8 +14,8 @@ class VIZ:
         Initialize
         """
         self.directory = Path(os.getcwd())
-        self.color_grid = ['#840d81','#6c4ba6','#407bc1','#18b5d8','#01e9f5', 
-                           '#cef19d','#a6dba7','#77bd98','#398684','#094869']
+        self.color_grid = ['#840d81', '#6c4ba6', '#407bc1', '#18b5d8', '#01e9f5',
+                           '#cef19d', '#a6dba7', '#77bd98', '#398684', '#094869']
         
     @staticmethod
     def createFolder(directory):
@@ -67,14 +67,18 @@ class VIZ:
             subprocess.call([inkscape_path, svg_filepath, '--export-png', png_filepath])
             os.remove(svg_filepath)
     
-    def visualize_slf(self, filename, edps=["IDR S", "IDR NS", "PFA NS"], showplot=False, sflag=False):
+    def visualize_slf(self, filename, edps=None, showplot=False, sflag=False):
         """
         Visualizing graphs for the SLF generator
         :param filename: str                    File name, e.g. '*\filename.extension' 
-        :param edps: list(str)                  EDPs as keys used for accessing data and plotting, e.g. IDR S, IDR, PFA, IDR NS, PFA NS
+        :param edps: list(str)                  EDPs as keys used for accessing data and plotting, e.g. IDR S, IDR, PFA,
+                                                IDR NS, PFA NS
         :param showplot: bool                   Whether to plot the figures in the interpreter or not
         :param sflag: bool                      Whether to save the figures or not
         """
+        if edps is None:
+            edps = ["IDR S", "IDR NS", "PFA NS"]
+
         filepath = self.directory / "client" / filename
         
         if filename.endswith(".pkl") or filename.endswith(".pickle"):
@@ -176,8 +180,10 @@ class VIZ:
             if not showplot:
                 plt.close()
             if sflag:
-                self.plot_as_emf(fig,filename=self.directory/"client"/'figures'/f'edp_loss_{edp}_{plot_tag}'.replace(" ", "_"))
-                self.plot_as_png(fig,filename=self.directory/"client"/'figures'/f'edp_loss_{edp}_{plot_tag}'.replace(" ", "_"))
+                self.plot_as_emf(fig,filename=self.directory/"client"/'figures'/f'edp_loss_{edp}_'
+                                                                                f'{plot_tag}'.replace(" ", "_"))
+                self.plot_as_png(fig,filename=self.directory/"client"/'figures'/f'edp_loss_{edp}_'
+                                                                                f'{plot_tag}'.replace(" ", "_"))
         
         # Loss in euro vs EDP (including the simulation scatter, the fractiles of 
         #  the simulations and the fitted fractiles, and the fitted mean)
@@ -219,21 +225,22 @@ class VIZ:
             if not showplot:
                 plt.close()
             if sflag:
-                self.plot_as_emf(fig,filename=self.directory/"client"/'figures'/f'loss_{edp}_{plot_tag}'.replace(" ", "_"))
-                self.plot_as_png(fig,filename=self.directory/"client"/'figures'/f'loss_{edp}_{plot_tag}'.replace(" ", "_"))
-                
-        
+                self.plot_as_emf(fig,filename=self.directory/"client"/'figures'/f'loss_{edp}_'
+                                                                                f'{plot_tag}'.replace(" ", "_"))
+                self.plot_as_png(fig,filename=self.directory/"client"/'figures'/f'loss_{edp}_'
+                                                                                f'{plot_tag}'.replace(" ", "_"))
+
         # Storing figures
         if sflag:
             if fig1 is not None:
-                self.plot_as_emf(fig1,filename=self.directory/"client"/'figures'/f'slf_idr_s_{plot_tag}')
-                self.plot_as_png(fig1,filename=self.directory/"client"/'figures'/f'slf_idr_s_{plot_tag}')
+                self.plot_as_emf(fig1, filename=self.directory/"client"/'figures'/f'slf_idr_s_{plot_tag}')
+                self.plot_as_png(fig1, filename=self.directory/"client"/'figures'/f'slf_idr_s_{plot_tag}')
             if fig2 is not None:
-                self.plot_as_emf(fig2,filename=self.directory/"client"/'figures'/f'slf_pfa_ns_{plot_tag}')
-                self.plot_as_png(fig2,filename=self.directory/"client"/'figures'/f'slf_pfa_ns_{plot_tag}')
+                self.plot_as_emf(fig2, filename=self.directory/"client"/'figures'/f'slf_pfa_ns_{plot_tag}')
+                self.plot_as_png(fig2, filename=self.directory/"client"/'figures'/f'slf_pfa_ns_{plot_tag}')
             if fig3 is not None:
-                self.plot_as_emf(fig3,filename=self.directory/"client"/'figures'/f'comp1_frag_{plot_tag}')
-                self.plot_as_png(fig3,filename=self.directory/"client"/'figures'/f'comp1_frag_{plot_tag}')
+                self.plot_as_emf(fig3, filename=self.directory/"client"/'figures'/f'comp1_frag_{plot_tag}')
+                self.plot_as_png(fig3, filename=self.directory/"client"/'figures'/f'comp1_frag_{plot_tag}')
         
         return data
     
@@ -242,29 +249,3 @@ if __name__ == "__main__":
     viz = VIZ()
     viz.createFolder(viz.directory/"client"/"figures")
     slf = viz.visualize_slf("Correlated_ignoring_independence_Independent.pkl", edps=["IDR"], showplot=True, sflag=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

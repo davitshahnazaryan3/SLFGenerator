@@ -7,10 +7,10 @@ from pathlib import Path
 # Data manipulation libraries
 import pandas as pd
 import pickle
-# Visualization libraries
-import matplotlib.pyplot as plt
 # Importing the SLF Generator tool
 from tools.slf_function_gui import SLF_function_gui
+# Importing the visualization tool
+from tools.viz import VIZ
 
 
 class Root(tk.Tk):
