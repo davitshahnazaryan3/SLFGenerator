@@ -193,7 +193,7 @@ class Root(tk.Tk):
         """
         for text, mode in self.MODES:
             radio_button = tk.Radiobutton(self.frame, text=text, variable=variable, value=mode)
-            radio_button.grid(row=cnt, column=0, sticky=tk.W)
+            radio_button.grid(row=cnt, column=0, sticky=tk.W, padx=10)
             cnt += 1
         return cnt
 
@@ -400,12 +400,14 @@ class Root(tk.Tk):
                 slf = SLF_function_gui(project_name, component_data, correlation_tree, edp_bin, correlation_type,
                                        n_realizations, conversion_factor, do_grouping, sflag=False)
                 self.outputs = slf.master(sensitivityflag=False)
+
                 # TODO, add sensitivity option on the GUI
                 # TODO, add button to save all figures as .svg or .pdf
                 # TODO, add options to save outputs as .csv etc.
 
                 # Visualize figures on the canvas
                 self.visualize()
+                # TODO, visualization issues, where grouped functions are not properly shown, gives out an error, also add button to save photos as svgs
 
         except:
             messagebox.showwarning("EXCEPTION", "Input Data is Missing!")

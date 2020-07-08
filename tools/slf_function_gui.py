@@ -328,8 +328,14 @@ class SLF_function_gui:
                     damage = np.zeros(num_edp)
                     # DS
                     for ds in range(4, -1, -1):
-                        y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                        damage = np.where(random_array >= y, ds_range[ds], damage)
+                        y1 = fragilities["ITEMs"][item][f"DS{ds + 1}"]
+                        if ds == 4:
+                            damage = np.where(random_array <= y1, ds_range[ds + 1], damage)
+                        elif ds == 0:
+                            damage = np.where(random_array >= y1, ds_range[ds], damage)
+                        else:
+                            y = fragilities["ITEMs"][item][f"DS{ds}"]
+                            damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
                     damage_state[item][n] = damage
             return damage_state
 
@@ -345,8 +351,14 @@ class SLF_function_gui:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
                         for ds in range(4, -1, -1):
-                            y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                            damage = np.where(random_array >= y, ds_range[ds], damage)
+                            y1 = fragilities["ITEMs"][item][f"DS{ds + 1}"]
+                            if ds == 4:
+                                damage = np.where(random_array <= y1, ds_range[ds + 1], damage)
+                            elif ds == 0:
+                                damage = np.where(random_array >= y1, ds_range[ds], damage)
+                            else:
+                                y = fragilities["ITEMs"][item][f"DS{ds}"]
+                                damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
                         damage_state[item][n] = damage
                     else:
                         # -1 to indicate no assignment to a final DS to sub correlated elements
@@ -397,6 +409,7 @@ class SLF_function_gui:
                         # Find the DS on the causation element
                         if damage_state[item + 1][n][edp] == -1:
                             # if the causation element still has not been assigned a DS
+                            # TODO, this does not seem right, verify
                             if damage_state[int(matrix[item][0])][n][edp] == -1:
                                 # The marker will make the engine simulate the DS at the successive iteration
                                 damage_state[item + 1][n][edp] = -1
@@ -426,8 +439,22 @@ class SLF_function_gui:
                                 # Simulates the DS at the given EDP, for the new set of probabilities
                                 rand_value = np.random.rand(1)[0]
                                 for ds in range(4, -1, -1):
-                                    if rand_value >= y_new[item + 1][edp][n][ds]:
-                                        damage_state[item + 1][n][edp] = ds_range[ds]
+                                    if ds == 4:
+                                        if rand_value <= y_new[item + 1][edp][n][ds]:
+                                            damage = ds_range[ds + 1]
+                                        else:
+                                            damage = 0
+                                    elif ds == 0:
+                                        if rand_value >= y_new[item + 1][edp][n][ds]:
+                                            damage = ds_range[ds]
+                                        else:
+                                            damage = damage
+                                    else:
+                                        if y_new[item + 1][edp][n][ds] <= rand_value < y_new[item + 1][edp][n][ds - 1]:
+                                            damage = ds_range[ds]
+                                        else:
+                                            damage = damage
+                                    damage_state[item + 1][n][edp] = damage
 
             test = 0
             for i in damage_state:
@@ -515,6 +542,7 @@ class SLF_function_gui:
         return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost
 
     def perform_regression(self, total_loss_storey, total_loss_ratio, edp, percentiles=None):
+        # TODO, add more regression options
         """
         Performs regression and outputs final fitted results for the EDP-DV functions
         :param total_loss_storey: dict                      Total loss for the floor segment

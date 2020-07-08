@@ -8,8 +8,9 @@ Considerations for double counting should be done at the input level and the con
 SLF estimation procedure:       Ramirez and Miranda 2009, CH.3 Storey-based building-specific loss estimation (p. 17)
 FEMA P-58 for fragilities:      https://femap58.atcouncil.org/reports
 For consequence functions:      https://femap58.atcouncil.org/reports
-Python tools for reference:       https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/
+Python tools for reference:     https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/
                                 https://www.youtube.com/watch?v=627VBkAhKTc
+For n Monte Carlo simulations:  https://www.vosesoftware.com/riskwiki/Howmanyiterationstorun.php
 
 EDP:    Engineering Demand Parameter
 DV:     Decision Variable
@@ -33,6 +34,7 @@ class SLF:
         """
         Initialization of the Master Generator
         TODO, add option to assign Independent or Correlated for each performance group or among performance groups
+        TODO, add option for mutually exclusive damage states
         :param project_name: str                Name of the project to save in the database
         :param component_data_filename: str     Component data file name, e.g. "*.csv"
         :param correlation_tree_filename: str   Correlation tree file name, e.g. "*.csv"
@@ -308,6 +310,7 @@ class SLF:
         :param corr_tree: ndarray               Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
         """
+        global random_array
         num_items = len(fragilities["ITEMs"])
         ds_range = np.arange(0, 6, 1)
         num_edp = len(fragilities["EDP"])
@@ -324,8 +327,14 @@ class SLF:
                     damage = np.zeros(num_edp)
                     # DS
                     for ds in range(4, -1, -1):
-                        y = fragilities["ITEMs"][item][f"DS{ds+1}"]
-                        damage = np.where(random_array >= y, ds_range[ds], damage)
+                        y1 = fragilities["ITEMs"][item][f"DS{ds+1}"]
+                        if ds == 4:
+                            damage = np.where(random_array <= y1, ds_range[ds+1], damage)
+                        elif ds == 0:
+                            damage = np.where(random_array >= y1, ds_range[ds], damage)
+                        else:
+                            y = fragilities["ITEMs"][item][f"DS{ds}"]
+                            damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
                     damage_state[item][n] = damage
             return damage_state
         
@@ -341,8 +350,14 @@ class SLF:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
                         for ds in range(4, -1, -1):
-                            y = fragilities["ITEMs"][item][f"DS{ds+1}"]
-                            damage = np.where(random_array >= y, ds_range[ds], damage)
+                            y1 = fragilities["ITEMs"][item][f"DS{ds+1}"]
+                            if ds == 4:
+                                damage = np.where(random_array <= y1, ds_range[ds+1], damage)
+                            elif ds == 0:
+                                damage = np.where(random_array >= y1, ds_range[ds], damage)
+                            else:
+                                y = fragilities["ITEMs"][item][f"DS{ds}"]
+                                damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
                         damage_state[item][n] = damage
                     else:
                         # -1 to indicate no assignment to a final DS to sub correlated elements
@@ -393,6 +408,7 @@ class SLF:
                         # Find the DS on the causation element
                         if damage_state[item+1][n][edp] == -1:
                             # if the causation element still has not been assigned a DS
+                            # TODO, this does not seem right, verify
                             if damage_state[int(matrix[item][0])][n][edp] == -1:
                                 # The marker will make the engine simulate the DS at the successive iteration
                                 damage_state[item+1][n][edp] = -1
@@ -412,7 +428,7 @@ class SLF:
                                         y = fragilities["ITEMs"][item+1][f"DS{ds+1}"]
                                         y_new[item+1][edp][n][ds] = y[edp]
                                     else:
-                                        # conditional probability of having DS >= DS_k given min_DS
+                                        # conditional probability of having DS >= DS_ds given min_DS
                                         y = fragilities["ITEMs"][item+1][f"DS{ds+1}"]
                                         y1 = fragilities["ITEMs"][item+1][f"DS{int(min_ds[item+1][edp][n])+1}"]
                                         y_new[item+1][edp][n][ds] = y[edp]/y1[edp]
@@ -422,9 +438,24 @@ class SLF:
                                 # Simulates the DS at the given EDP, for the new set of probabilities
                                 rand_value = np.random.rand(1)[0]
                                 for ds in range(4, -1, -1):
-                                    if rand_value >= y_new[item+1][edp][n][ds]:
-                                        damage_state[item+1][n][edp] = ds_range[ds]
-            
+#                                   if rand_value >= y_new[item+1][edp][n][ds]:
+#                                       damage_state[item+1][n][edp] = ds_range[ds]
+                                    if ds == 4:
+                                        if rand_value <= y_new[item+1][edp][n][ds]:
+                                            damage = ds_range[ds+1]
+                                        else:
+                                            damage = 0
+                                    elif ds == 0:
+                                        if rand_value >= y_new[item+1][edp][n][ds]:
+                                            damage = ds_range[ds]
+                                        else:
+                                            damage = damage
+                                    else:
+                                        if y_new[item+1][edp][n][ds] <= rand_value < y_new[item+1][edp][n][ds-1]:
+                                            damage = ds_range[ds]
+                                        else:
+                                            damage = damage
+                                    damage_state[item+1][n][edp] = damage
             test = 0
             for i in damage_state:
                 for j in damage_state[i]:
@@ -695,8 +726,8 @@ if __name__ == "__main__":
     edp_bin                     Step of edp
     n_realizations              number of simulations per edp
     """
-    slf = SLF("Correlated", "component_data2.csv", "correlation_tree2.csv", correlation="Correlated", n_realizations=20,
-              sflag=True, do_grouping=False)
+    slf = SLF("school", "school_inventory.csv", "school_corr.csv", correlation="Independent", n_realizations=300,
+              sflag=True, do_grouping=True)
     run_master = True
     if run_master:
         outputs = slf.master(sensitivityflag=False)
@@ -726,11 +757,11 @@ if __name__ == "__main__":
                 damage_state = slf.perform_Monte_Carlo(fragilities, matrix)
                 damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
                 loss_ratios, total_loss_storey, total_loss_ratio, total_loss, repair_cost = slf.calculate_loss(component_data,
-                                                                                                  damage_state,
-                                                                                                  means_cost, covs_cost)
+                                                                                                 damage_state,
+                                                                                                 means_cost, covs_cost)
                 losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
                 edp_dv_functions = slf.get_in_euros(losses_fitted, total_loss)
-                
+
                 cnt += 1
     
                 if cnt == 1:
