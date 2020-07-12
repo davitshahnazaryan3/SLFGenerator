@@ -30,16 +30,21 @@ warnings.filterwarnings('ignore')
 
 class SLF:
     def __init__(self, project_name, component_data_filename, correlation_tree_filename, edp_bin=0.1,
-                 correlation="Correlated", n_realizations=20, conversion=1.0, do_grouping=True, sflag=True):
+                 correlation="Correlated", regression="Weibull", n_realizations=20, conversion=1.0, do_grouping=True,
+                 sflag=True):
         """
         Initialization of the Master Generator
         TODO, add option to assign Independent or Correlated for each performance group or among performance groups
         TODO, add option for mutually exclusive damage states
+        TODO, include possibility of including quantity uncertainties along with the mean values
+        TODO, remove limit on number of DS
+        TODO, plotting n_to_plot simulations only, adapt from VIZ
         :param project_name: str                Name of the project to save in the database
         :param component_data_filename: str     Component data file name, e.g. "*.csv"
         :param correlation_tree_filename: str   Correlation tree file name, e.g. "*.csv"
         :param edp_bin: float                   EDP sampling unit, % for IDR, g for PFA (non-negative)
         :param correlation: str                 Whether the elements are "Independent" or "Correlated"
+        :param regression: str                  Whether the regression function is based on "Weibull" or "Papadopoulos"
         :param n_realizations: int              Number of realizations
         :param conversion: float                Conversion factor from usd to euro, e.g. if provided in euro, use 1.0;
                                                 if 1 usd = 0.88euro, use 0.88
@@ -54,6 +59,7 @@ class SLF:
         self.correlation_tree_filename = correlation_tree_filename
         self.edp_bin = edp_bin
         self.correlation = correlation
+        self.regression = regression
         self.n_realizations = n_realizations
         self.conversion = conversion
         self.do_grouping = do_grouping
@@ -310,7 +316,6 @@ class SLF:
         :param corr_tree: ndarray               Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
         """
-        global random_array
         num_items = len(fragilities["ITEMs"])
         ds_range = np.arange(0, 6, 1)
         num_edp = len(fragilities["EDP"])
@@ -326,15 +331,13 @@ class SLF:
                     random_array = np.random.rand(num_edp)
                     damage = np.zeros(num_edp)
                     # DS
-                    for ds in range(4, -1, -1):
-                        y1 = fragilities["ITEMs"][item][f"DS{ds+1}"]
-                        if ds == 4:
-                            damage = np.where(random_array <= y1, ds_range[ds+1], damage)
-                        elif ds == 0:
-                            damage = np.where(random_array >= y1, ds_range[ds], damage)
+                    for ds in range(5, 0, -1):
+                        y1 = fragilities["ITEMs"][item][f"DS{ds}"]
+                        if ds == 5:
+                            damage = np.where(random_array <= y1, ds_range[ds], damage)
                         else:
-                            y = fragilities["ITEMs"][item][f"DS{ds}"]
-                            damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
+                            y = fragilities["ITEMs"][item][f"DS{ds+1}"]
+                            damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
                     damage_state[item][n] = damage
             return damage_state
         
@@ -349,15 +352,14 @@ class SLF:
                     if corr_tree[idx][0] == item:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
-                        for ds in range(4, -1, -1):
-                            y1 = fragilities["ITEMs"][item][f"DS{ds+1}"]
-                            if ds == 4:
-                                damage = np.where(random_array <= y1, ds_range[ds+1], damage)
-                            elif ds == 0:
-                                damage = np.where(random_array >= y1, ds_range[ds], damage)
+                        # DS
+                        for ds in range(5, 0, -1):
+                            y1 = fragilities["ITEMs"][item][f"DS{ds}"]
+                            if ds == 5:
+                                damage = np.where(random_array <= y1, ds_range[ds], damage)
                             else:
-                                y = fragilities["ITEMs"][item][f"DS{ds}"]
-                                damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
+                                y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
+                                damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
                         damage_state[item][n] = damage
                     else:
                         # -1 to indicate no assignment to a final DS to sub correlated elements
@@ -416,42 +418,34 @@ class SLF:
                                 # Finds the minimum DS for the i-th element
                                 min_ds[item+1][edp][n] = matrix[item][1+int(damage_state[matrix[item][0]][n][edp])]
                                 # Recalculates the probability of having each DS in the condition of having a min DS
-                                # Damage states
+                                # Damage states.
                                 for ds in range(5):
                                     # All DS smaller than min_DS have a probability of 1 of being observed
-                                    # TODO, check if it is ds+1 or ds
-                                    if ds + 1 <= min_ds[item+1][edp][n]:
+                                    if min_ds[item+1][edp][n] >= ds + 1:
                                         # probability of having DS >= min_k
-                                        y_new[item+1][edp][n][ds] = 1
+                                        y_new[item+1][edp][n][ds+1] = 1
                                         # if min_DS is zero then the probabilities are unchanged
                                     elif min_ds[item+1][edp][n] == 0:
                                         y = fragilities["ITEMs"][item+1][f"DS{ds+1}"]
-                                        y_new[item+1][edp][n][ds] = y[edp]
+                                        y_new[item+1][edp][n][ds+1] = y[edp]
                                     else:
                                         # conditional probability of having DS >= DS_ds given min_DS
                                         y = fragilities["ITEMs"][item+1][f"DS{ds+1}"]
                                         y1 = fragilities["ITEMs"][item+1][f"DS{int(min_ds[item+1][edp][n])+1}"]
-                                        y_new[item+1][edp][n][ds] = y[edp]/y1[edp]
-                                        if math.isnan(y_new[item+1][edp][n][ds]):
-                                            y_new[item+1][edp][n][ds] = 0
+                                        y_new[item+1][edp][n][ds+1] = y[edp]/y1[edp]
+                                        if math.isnan(y_new[item+1][edp][n][ds+1]):
+                                            y_new[item+1][edp][n][ds+1] = 0
                                             
                                 # Simulates the DS at the given EDP, for the new set of probabilities
                                 rand_value = np.random.rand(1)[0]
-                                for ds in range(4, -1, -1):
-#                                   if rand_value >= y_new[item+1][edp][n][ds]:
-#                                       damage_state[item+1][n][edp] = ds_range[ds]
-                                    if ds == 4:
-                                        if rand_value <= y_new[item+1][edp][n][ds]:
-                                            damage = ds_range[ds+1]
-                                        else:
-                                            damage = 0
-                                    elif ds == 0:
-                                        if rand_value >= y_new[item+1][edp][n][ds]:
+                                for ds in range(5, 0, -1):
+                                    if ds == 5:
+                                        if rand_value <= y_new[item+1][edp][n][ds-1]:
                                             damage = ds_range[ds]
                                         else:
-                                            damage = damage
+                                            damage = 0
                                     else:
-                                        if y_new[item+1][edp][n][ds] <= rand_value < y_new[item+1][edp][n][ds-1]:
+                                        if y_new[item+1][edp][n][ds+1] <= rand_value < y_new[item+1][edp][n][ds]:
                                             damage = ds_range[ds]
                                         else:
                                             damage = damage
@@ -535,7 +529,7 @@ class SLF:
         for n in range(self.n_realizations):
             total_loss_storey_ratio[n] = total_loss_storey[n]/total_replacement_cost
         
-        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost
+        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost, total_repair_cost
     
     def perform_regression(self, total_loss_storey, total_loss_ratio, edp, percentiles=None):
         """
@@ -567,15 +561,21 @@ class SLF:
             edp_range = self.edp_range
 
         ''' Fitting the curve, EDP-DV functions, assuming Weibull Distribution '''
-        def fitting_function(x, a, b, c):
-            return a*(1 - np.exp(-(x/b)**c))
+        if self.regression == "Weibull":
+            def fitting_function(x, a, b, c):
+                return a*(1 - np.exp(-(x/b)**c))
+        elif self.regression == "Papadopoulos":
+            def fitting_function(x, a, b, c, d, e):
+                return (e*x**a/(b**a + x**a) + (1-e)*x**c/(d**c + x**c))
+        else:
+            raise ValueError("[EXCEPTION] Wrong type of regression function")
         
         losses_fitted = {}
         for q in percentiles:
-            popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc[q])
+            popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc[q], maxfev=10**6)
             losses_fitted[q] = fitting_function(edp_range, *popt)
             
-        popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc['mean'])
+        popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc['mean'], maxfev=10**6)
         losses_fitted['mean'] = fitting_function(edp_range, *popt)
         
         return losses, losses_fitted
@@ -643,7 +643,7 @@ class SLF:
                             n_items = 0
                         else:
                             n_items = sum(items_per_group[:cnt])
-                            
+                        
                         fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
                         damage_probs = self.get_DS_probs(component_data, fragilities)
                         damage_state = self.perform_Monte_Carlo(fragilities, matrix)
@@ -695,14 +695,14 @@ class SLF:
                     damage_probs = self.get_DS_probs(component_data, fragilities)
                     damage_state = self.perform_Monte_Carlo(fragilities, matrix)
                     damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
-                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
+                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost, total_repair_cost = \
                         self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
                     losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
                     edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
                     outputs[group] = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities,
                                        'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted,
                                        'edp_dv_euro': edp_dv_functions, 'total_replacement_cost': total_replacement_cost, 
-                                       'total_loss_storey': total_loss_storey}
+                                       'total_loss_storey': total_loss_storey, "total_repair_cost": total_repair_cost}
                     
                     cnt += 1
             
@@ -726,8 +726,8 @@ if __name__ == "__main__":
     edp_bin                     Step of edp
     n_realizations              number of simulations per edp
     """
-    slf = SLF("school", "school_inventory.csv", "school_corr.csv", correlation="Independent", n_realizations=300,
-              sflag=True, do_grouping=True)
+    slf = SLF("nspfa_p", "nspfa_inv.csv", "nspfa_corr.csv", correlation="Correlated", n_realizations=3200,
+              sflag=True, do_grouping=False, regression="Papadopoulos")
     run_master = True
     if run_master:
         outputs = slf.master(sensitivityflag=False)
@@ -760,7 +760,7 @@ if __name__ == "__main__":
                                                                                                  damage_state,
                                                                                                  means_cost, covs_cost)
                 losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
-                edp_dv_functions = slf.get_in_euros(losses_fitted, total_loss)
+#                edp_dv_functions = slf.get_in_euros(losses_fitted, total_loss)
 
                 cnt += 1
     

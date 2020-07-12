@@ -16,6 +16,7 @@ from matplotlib.figure import Figure
 
 class Root(tk.Tk):
     # TODO, messagebox/warnings
+    # TODO, add error estimation
     def __init__(self):
         # Initiating variables to be used later on
         self.data = None

@@ -327,15 +327,13 @@ class SLF_function_gui:
                     random_array = np.random.rand(num_edp)
                     damage = np.zeros(num_edp)
                     # DS
-                    for ds in range(4, -1, -1):
-                        y1 = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                        if ds == 4:
-                            damage = np.where(random_array <= y1, ds_range[ds + 1], damage)
-                        elif ds == 0:
-                            damage = np.where(random_array >= y1, ds_range[ds], damage)
+                    for ds in range(5, 0, -1):
+                        y1 = fragilities["ITEMs"][item][f"DS{ds}"]
+                        if ds == 5:
+                            damage = np.where(random_array <= y1, ds_range[ds], damage)
                         else:
-                            y = fragilities["ITEMs"][item][f"DS{ds}"]
-                            damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
+                            y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
+                            damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
                     damage_state[item][n] = damage
             return damage_state
 
@@ -350,15 +348,14 @@ class SLF_function_gui:
                     if corr_tree[idx][0] == item:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
-                        for ds in range(4, -1, -1):
-                            y1 = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                            if ds == 4:
-                                damage = np.where(random_array <= y1, ds_range[ds + 1], damage)
-                            elif ds == 0:
-                                damage = np.where(random_array >= y1, ds_range[ds], damage)
+                        # DS
+                        for ds in range(5, 0, -1):
+                            y1 = fragilities["ITEMs"][item][f"DS{ds}"]
+                            if ds == 5:
+                                damage = np.where(random_array <= y1, ds_range[ds], damage)
                             else:
-                                y = fragilities["ITEMs"][item][f"DS{ds}"]
-                                damage = np.where((random_array >= y1) & (random_array <= y), ds_range[ds], damage)
+                                y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
+                                damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
                         damage_state[item][n] = damage
                     else:
                         # -1 to indicate no assignment to a final DS to sub correlated elements
@@ -420,41 +417,35 @@ class SLF_function_gui:
                                 # Damage states
                                 for ds in range(5):
                                     # All DS smaller than min_DS have a probability of 1 of being observed
-                                    # TODO, check if it is ds+1 or ds
                                     if ds + 1 <= min_ds[item + 1][edp][n]:
                                         # probability of having DS >= min_k
-                                        y_new[item + 1][edp][n][ds] = 1
+                                        y_new[item + 1][edp][n][ds+1] = 1
                                         # if min_DS is zero then the probabilities are unchanged
                                     elif min_ds[item + 1][edp][n] == 0:
                                         y = fragilities["ITEMs"][item + 1][f"DS{ds + 1}"]
-                                        y_new[item + 1][edp][n][ds] = y[edp]
+                                        y_new[item + 1][edp][n][ds+1] = y[edp]
                                     else:
                                         # conditional probability of having DS >= DS_k given min_DS
                                         y = fragilities["ITEMs"][item + 1][f"DS{ds + 1}"]
                                         y1 = fragilities["ITEMs"][item + 1][f"DS{int(min_ds[item + 1][edp][n]) + 1}"]
-                                        y_new[item + 1][edp][n][ds] = y[edp] / y1[edp]
-                                        if math.isnan(y_new[item + 1][edp][n][ds]):
-                                            y_new[item + 1][edp][n][ds] = 0
+                                        y_new[item + 1][edp][n][ds+1] = y[edp] / y1[edp]
+                                        if math.isnan(y_new[item + 1][edp][n][ds+1]):
+                                            y_new[item + 1][edp][n][ds+1] = 0
 
                                 # Simulates the DS at the given EDP, for the new set of probabilities
                                 rand_value = np.random.rand(1)[0]
-                                for ds in range(4, -1, -1):
-                                    if ds == 4:
-                                        if rand_value <= y_new[item + 1][edp][n][ds]:
-                                            damage = ds_range[ds + 1]
+                                for ds in range(5, 0, -1):
+                                    if ds == 5:
+                                        if rand_value <= y_new[item+1][edp][n][ds-1]:
+                                            damage = ds_range[ds]
                                         else:
                                             damage = 0
-                                    elif ds == 0:
-                                        if rand_value >= y_new[item + 1][edp][n][ds]:
-                                            damage = ds_range[ds]
-                                        else:
-                                            damage = damage
                                     else:
-                                        if y_new[item + 1][edp][n][ds] <= rand_value < y_new[item + 1][edp][n][ds - 1]:
+                                        if y_new[item+1][edp][n][ds+1] <= rand_value < y_new[item+1][edp][n][ds]:
                                             damage = ds_range[ds]
                                         else:
                                             damage = damage
-                                    damage_state[item + 1][n][edp] = damage
+                                    damage_state[item+1][n][edp] = damage
 
             test = 0
             for i in damage_state:
