@@ -19,8 +19,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import math
-import pickle
-import json
 from scipy import stats
 from scipy.optimize import curve_fit
 import warnings
@@ -30,7 +28,7 @@ warnings.filterwarnings('ignore')
 
 class SLF:
     def __init__(self, project_name, component_data, correlation_tree, edp_bin=None, correlation="Correlated",
-                 regression="Weibull", n_realizations=20, conversion=1.0, do_grouping=True, sflag=True):
+                 regression="Weibull", n_realizations=20, conversion=1.0, do_grouping=True):
         """
         Initialization of the Master Generator
         TODO, add option for mutually exclusive damage states
@@ -46,7 +44,6 @@ class SLF:
                                                 if 1 usd = 0.88euro, use 0.88
                                                 or use 1.0 if ratios are used directly
         :param do_grouping: bool                Whether to do performance grouping or use the entire component database
-        :param sflag: bool                      Save data
         """
         if edp_bin is None:
             edp_bin = [0.1, 0.05]
@@ -61,7 +58,6 @@ class SLF:
         self.n_realizations = n_realizations
         self.conversion = conversion
         self.do_grouping = do_grouping
-        self.sflag = sflag
         self.edp_range = None
 
     def get_edp_range(self, edp):
@@ -81,25 +77,6 @@ class SLF:
             self.edp_range = np.arange(0, 10.0 + edp_bin, edp_bin)
         else:
             raise ValueError("[EXCEPTION] Wrong EDP type, must be 'IDR'/'PSD' or 'PFA'")
-
-    def store_results(self, filepath, data, filetype):
-        """
-        Store results in the database depending on file type selected
-        :param filepath: str                            Filepath, e.g. "directory/name"
-        :param data:                                    Data to be stored
-        :param filetype: str                            Filetype, e.g. npy, json, pkl, csv
-        :return: None
-        """
-        if filetype == "npy":
-            np.save(f"{filepath}.npy", data)
-        elif filetype == "pkl" or filetype == "pickle":
-            with open(f"{filepath}.pkl", 'wb') as handle:
-                pickle.dump(data, handle)
-        elif filetype == "json":
-            with open(f"{filepath}.json", "w") as json_file:
-                json.dump(data, json_file)
-        elif filetype == "csv":
-            data.to_csv(f"{filepath}.csv")
 
     def get_component_data(self):
         """
@@ -229,6 +206,7 @@ class SLF:
         if len(correlation_tree.keys()) < max(ds_limit) + 3:
             raise ValueError("[EXCEPTION] Unexpected (fewer) number of features in the correlations DataFrame")
 
+        # Verify integrity of the provided correlation tree
         idx = 0
         for item in component_data.index:
             for feature in correlation_tree.keys():
@@ -302,8 +280,9 @@ class SLF:
         # TODO, modify 4, make indentation smarter
         data = component_data.values[:, 4:]
 
+        # Get parameters of the fragility and consequence functions
         for item in range(len(data)):
-            for ds in range(5):
+            for ds in range(max_ds_selected):
                 means_fr[item][ds] = data[item][ds]
                 covs_fr[item][ds] = data[item][ds + 5]
                 means_cost[item][ds] = data[item][ds + 10] * self.conversion
@@ -311,18 +290,17 @@ class SLF:
 
         # Deriving the ordinates of the fragility functions
         fragilities = {"EDP": self.edp_range, "ITEMs": {}}
-        n_items = 0
         for item in range(len(data)):
-            fragilities["ITEMs"][item + 1 + n_items] = {}
-            for ds in range(5):
+            fragilities["ITEMs"][item + 1] = {}
+            for ds in range(max_ds_selected):
                 mean = np.exp(np.log(means_fr[item][ds]) - 0.5 * np.log(covs_fr[item][ds] ** 2 + 1))
                 std = np.log(covs_fr[item][ds] ** 2 + 1) ** 0.5
                 if mean == 0 and std == 0:
-                    fragilities["ITEMs"][item + 1 + n_items][f"DS{ds + 1}"] = np.zeros(len(self.edp_range))
+                    fragilities["ITEMs"][item + 1][f"DS{ds + 1}"] = np.zeros(len(self.edp_range))
                 else:
                     frag = stats.norm.cdf(np.log(self.edp_range / mean) / std, loc=0, scale=1)
                     frag[np.isnan(frag)] = 0
-                    fragilities["ITEMs"][item + 1 + n_items][f"DS{ds + 1}"] = frag
+                    fragilities["ITEMs"][item + 1][f"DS{ds + 1}"] = frag
 
         return fragilities, means_cost, covs_cost
 
@@ -333,9 +311,6 @@ class SLF:
         :param fragilities: dict                Fragility functions of all components at all DSs
         :return: dict                           Probabilities of being in a given DS
         """
-        # Number of components in the building inventory
-        num_items = len(component_data)
-
         if self.correlation == "Independent":
             # Evaluating probability of having each damage state for every EDP
             # Items
@@ -360,8 +335,8 @@ class SLF:
         :param corr_tree: ndarray               Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
         """
-        num_items = len(fragilities["ITEMs"])
-        ds_range = np.arange(0, 6, 1)
+        num_ds = len(fragilities["ITEMs"][1])
+        ds_range = np.arange(0, num_ds + 1, 1)
         num_edp = len(fragilities["EDP"])
         damage_state = {}
         if self.correlation == "Independent":
@@ -375,9 +350,9 @@ class SLF:
                     random_array = np.random.rand(num_edp)
                     damage = np.zeros(num_edp)
                     # DS
-                    for ds in range(5, 0, -1):
+                    for ds in range(num_ds, 0, -1):
                         y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                        if ds == 5:
+                        if ds == num_ds:
                             damage = np.where(random_array <= y1, ds_range[ds], damage)
                         else:
                             y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
@@ -397,9 +372,9 @@ class SLF:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
                         # DS
-                        for ds in range(5, 0, -1):
+                        for ds in range(num_ds, 0, -1):
                             y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                            if ds == 5:
+                            if ds == num_ds:
                                 damage = np.where(random_array <= y1, ds_range[ds], damage)
                             else:
                                 y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
@@ -424,7 +399,8 @@ class SLF:
         :return: dict                           Damage states of each component for each simulation
         """
         num_items = len(damage_state)
-        ds_range = np.arange(0, 6, 1)
+        num_ds = len(fragilities["ITEMs"][1])
+        ds_range = np.arange(0, num_ds + 1, 1)
         iteration = 1
         test = 0
         for i in damage_state:
@@ -442,7 +418,7 @@ class SLF:
                 min_ds[item + 1] = {}
                 y_new[item + 1] = {}
 
-                # TODO, remove iteration on EDP, not elegant
+                # TODO, try avoiding iteration on EDP, not elegant and time consuming
                 # EDP values
                 for edp in range(len(self.edp_range)):
                     min_ds[item + 1][edp] = {}
@@ -462,7 +438,7 @@ class SLF:
                                 min_ds[item + 1][edp][n] = matrix[item][1 + int(damage_state[matrix[item][0]][n][edp])]
                                 # Recalculates the probability of having each DS in the condition of having a min DS
                                 # Damage states
-                                for ds in range(5):
+                                for ds in range(num_ds):
                                     # All DS smaller than min_DS have a probability of 1 of being observed
                                     if ds + 1 <= min_ds[item + 1][edp][n]:
                                         # probability of having DS >= min_k
@@ -481,8 +457,8 @@ class SLF:
 
                                 # Simulates the DS at the given EDP, for the new set of probabilities
                                 rand_value = np.random.rand(1)[0]
-                                for ds in range(5, 0, -1):
-                                    if ds == 5:
+                                for ds in range(num_ds, 0, -1):
+                                    if ds == num_ds:
                                         if rand_value <= y_new[item+1][edp][n][ds-1]:
                                             damage = ds_range[ds]
                                         else:
@@ -511,12 +487,15 @@ class SLF:
         :param covs_cost: ndarray                       Covariances of repair costs
         :return: dict                                   Repair costs
         """
+        # Number of damage states
+        num_ds = means_cost.shape[1]
+
         repair_cost = {}
         idx = 0
         for item in damage_state.keys():
             repair_cost[item] = {}
             for n in range(self.n_realizations):
-                for ds in range(6):
+                for ds in range(num_ds + 1):
                     if ds == 0:
                         repair_cost[item][n] = np.where(damage_state[item][n] == ds, ds, -1)
 
@@ -549,10 +528,10 @@ class SLF:
             idx += 1
 
         # Evaluate the total damage cost multiplying the individual cost by each element quantity
-        quantities = component_data["Quantity"]
-        total_repair_cost = {}  # Total repair costs
-        replacement_cost = {}  # Replacement costs
-        loss_ratios = {}  # Loss ratios
+        quantities = component_data["Quantity"]     # Component quantities
+        total_repair_cost = {}                      # Total repair costs
+        replacement_cost = {}                       # Replacement costs
+        loss_ratios = {}                            # Loss ratios
         idx = 0
         for item in damage_state.keys():
             total_repair_cost[item] = {}
@@ -776,11 +755,7 @@ class SLF:
         cache['SLFs'] = slfs
         outputs['SLFs'] = slfs
 
-        # Storing the outputs if asked
-        if self.sflag:
-            self.store_results(self.database_dir / f"{self.project_name}_{self.correlation}", cache, "pkl")
-            print("[SUCCESS] Successful completion!")
-        else:
-            print("[SUCCESS] Successful completion!")
+        # Completion
+        print("[SUCCESS] Successful completion!")
 
         return outputs, cache

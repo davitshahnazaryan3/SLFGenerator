@@ -481,7 +481,7 @@ class Root(tk.Tk):
                 pass
                 """ Runs SLF generator """
                 slf = SLF(project_name, component_data, correlation_tree, edp_bin, correlation_type, regression_type,
-                          n_realizations, conversion_factor, do_grouping, sflag=False)
+                          n_realizations, conversion_factor, do_grouping)
                 # Obtains the outputs
                 self.outputs, self.cache = slf.master()
 

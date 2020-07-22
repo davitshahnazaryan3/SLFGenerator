@@ -29,7 +29,7 @@ warnings.filterwarnings('ignore')
 
 
 class SLF:
-    def __init__(self, project_name, component_data_filename, correlation_tree_filename, edp_bin=0.1,
+    def __init__(self, project_name, component_data_filename, correlation_tree_filename, edp_bin=None,
                  correlation="Correlated", regression="Weibull", n_realizations=20, conversion=1.0, do_grouping=True,
                  sflag=True):
         """
@@ -47,6 +47,8 @@ class SLF:
         :param do_grouping: bool                Whether to do performance grouping or use the entire component database
         :param sflag: bool                      Save data
         """
+        if edp_bin is None:
+            edp_bin = [0.1, 0.05]
         self.dir = Path.cwd()
         self.database_dir = self.dir/"Database"
         self.project_name = project_name
@@ -61,24 +63,20 @@ class SLF:
         self.sflag = sflag
         self.edp_range = None
         
-    def get_edp_range(self, edp, edp_bin=None):
+    def get_edp_range(self, edp):
         """
         Identifies the EDP range based on edp type and input edp bin
         :param edp: str                         EDP type (IDR or PFA)
-        :param edp_bin: float                   EDP sampling unit, % for IDR, g for PFA (non-negative) 
         :return: None
         """
-        if edp_bin is not None:
-            edp_bin = edp_bin
-        
         # EDP range
         if edp == "IDR" or edp == "PSD":
             # stop calculation at 10% drift
-            edp_bin = self.edp_bin/100.
+            edp_bin = self.edp_bin[0] / 100.
             self.edp_range = np.arange(0, 0.2 + edp_bin, edp_bin)
         elif edp == "PFA":
             # stop calculation at 2.5g of acceleration
-            edp_bin = 0.25
+            edp_bin = self.edp_bin[1]
             self.edp_range = np.arange(0, 10.0 + edp_bin, edp_bin)
         else:
             raise ValueError("[EXCEPTION] Wrong EDP type, must be 'IDR'/'PSD' or 'PFA'")
@@ -118,16 +116,21 @@ class SLF:
         :return: DataFrame                  DataFrame containing the component data
         """
         component_data = pd.read_csv(self.dir/"client"/self.component_data_filename)
-        if len(component_data.keys()) != 31:
-            raise ValueError("[EXCEPTION] Unexpected number of features in the components DataFrame")
+        n_items = len(component_data)
             
         # Check for any missing values in the best_fit features
         for key in component_data.keys():
+            # 'best fit' features
             if key.endswith('best fit'):
                 component_data[key].fillna('normal', inplace=True)
+            if key == "ITEM":
+                component_data[key].fillna(pd.Series(np.arange(1, n_items+1, 1), dtype='int'), inplace=True)
+            if key == "ID":
+                component_data[key].fillna("B", inplace=True)
                 
-        # Replace all nan with 0.0 for the rest of the DataFrame
-        component_data.fillna(0.0, inplace=True)
+        # Replace all nan with 0.0 for the rest of the DataFrame, except for Group and Component
+        component_data[component_data.columns.difference(["Group", "Component"])] = \
+            component_data[component_data.columns.difference(["Group", "Component"])].fillna(0, inplace=False)
 
         return component_data
     
@@ -137,16 +140,59 @@ class SLF:
         :param component_data: DataFrame        DataFrame containing the component data
         :return: dict                           Dictionary containing DataFrames for each performance group
         """
+        groups = np.array(component_data["Group"])
+        components = np.array(component_data["Component"])
+
+        # Perform grouping
         if self.do_grouping:
-            idr_s = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "S")]
-            idr_ns = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "NS")]
-            pfa_ns = component_data[(component_data["EDP"] == "PFA") & (component_data["Component"] == "NS")]
-            
-            component_groups = {"IDR S": idr_s, "IDR NS": idr_ns, "PFA NS": pfa_ns}
+            # Check if grouping was assigned
+            # Group not assigned
+            if np.isnan(groups).any():
+                # Populate with a placeholder
+                component_data["Group"].fillna(-1, inplace=True)
+
+                # Only EDP was assigned (Component and Group unassigned)
+                if components.dtype != "O":
+                    # Populate with a placeholder
+                    component_data["Component"].fillna("-1", inplace=True)
+                    # Select unique EDPs
+                    unique_edps = component_data.EDP.unique()
+                    component_groups = {}
+                    for group in unique_edps:
+                        component_groups[group] = component_data[(component_data["EDP"] == group)]
+
+                # EDP and Component assigned
+                else:
+                    idr_s = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "S")]
+                    idr_ns = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "NS")]
+                    pfa_ns = component_data[(component_data["EDP"] == "PFA") & (component_data["Component"] == "NS")]
+
+                    component_groups = {"IDR S": idr_s, "IDR NS": idr_ns, "PFA NS": pfa_ns}
+
+            # Group is assigned
+            else:
+                if components.dtype != "O":
+                    # Populate with a placeholder
+                    component_data["Component"].fillna("-1", inplace=True)
+
+                unique_groups = np.unique(groups)
+                component_groups = {}
+                for group in unique_groups:
+                    component_groups[group] = component_data[(component_data["Group"] == group)]
+
+        # No grouping
         else:
+            if components.dtype != "O":
+                # Populate with a placeholder
+                component_data["Component"].fillna("-1", inplace=True)
+            if np.isnan(groups).any():
+                # Populate with a placeholder
+                component_data["Group"].fillna(-1, inplace=True)
+
+            # If no performance grouping is done, automatic group tag for the single group is assigned the EDP value
             key = component_data["EDP"].iloc[0]
             component_groups = {key: component_data}
-            
+
         return component_groups
     
     def get_correlation_tree(self, component_data):
@@ -157,23 +203,22 @@ class SLF:
         """
         # Get possible max DS
         max_DS = []
+        ds_limit = []
         for item in component_data.index:
-            for feature in component_data.keys():
-                ds = component_data.loc[item][feature]
-                if ds == 0:
-                    f = feature[0:3]
-                    break
-            max_DS.append(f)
+            ds = component_data.loc[item]["Damage States"]
+            max_DS.append(f"DS{ds+1}")
+            ds_limit.append(ds)
             
         # Check for errors in the input
         correlation_tree = pd.read_csv(self.dir/"client"/self.correlation_tree_filename)
         
         # Select the items within the component performance group
         correlation_tree = correlation_tree.loc[component_data.index]
-        
-        if len(correlation_tree.keys()) != 8:
-            raise ValueError("[EXCEPTION] Unexpected number of features in the correlations DataFrame")
-            
+
+        # Check integrity of the provided input correlation table
+        if len(correlation_tree.keys()) < max(ds_limit) + 3:
+            raise ValueError("[EXCEPTION] Unexpected (fewer) number of features in the correlations DataFrame")
+
         idx = 0
         for item in component_data.index:
             for feature in correlation_tree.keys():
@@ -186,7 +231,8 @@ class SLF:
         # Check that dimensions of the correlation tree and the component data match
         if len(component_data) != len(correlation_tree):
             raise ValueError("[EXCEPTION] Number of items in the correlation tree and component data should match")
-        
+
+        # Create the correlation matrix
         items = correlation_tree.values[:, 0]
         c_tree = np.delete(correlation_tree.values, 0, 1)
         matrix = np.zeros((c_tree.shape[0], c_tree.shape[1]))
@@ -219,31 +265,35 @@ class SLF:
         
         return matrix
 
-    def derive_fragility_functions(self, component_data, n_items=None):
+    def derive_fragility_functions(self, component_data):
         """
         Derives fragility functions
         :param component_data: DataFrame        DataFrame containing the component data
-        :param n_items: int                     Number of items from the previous group
         :return: dict                           Fragilities of all components at all DSs
         """
-        if n_items == None:
-            n_items = 0
+        # Get all DS columns
+        max_ds_selected = 0
+        for column in component_data.columns:
+            if column.endswith("Median Demand"):
+                max_ds_selected += 1
             
         # Select only numeric features
         component_data = component_data.select_dtypes(exclude=["object"])
         
         # Fragility parameters
-        means_fr = np.zeros((len(component_data), 5))
-        covs_fr = np.zeros((len(component_data), 5))
+        means_fr = np.zeros((len(component_data), max_ds_selected))
+        covs_fr = np.zeros((len(component_data), max_ds_selected))
         
         # Consequence parameters
-        means_cost = np.zeros((len(component_data), 5))
-        covs_cost = np.zeros((len(component_data), 5))
+        means_cost = np.zeros((len(component_data), max_ds_selected))
+        covs_cost = np.zeros((len(component_data), max_ds_selected))
         
         # Deriving fragility functions
-        data = component_data.values[:, 3:]
+        data = component_data.values[:, 4:]
+
+        # Get parameters of the fragility and consequence functions
         for item in range(len(data)):
-            for ds in range(5):
+            for ds in range(max_ds_selected):
                 means_fr[item][ds] = data[item][ds]
                 covs_fr[item][ds] = data[item][ds+5]
                 means_cost[item][ds] = data[item][ds+10]*self.conversion
@@ -252,45 +302,19 @@ class SLF:
         # Deriving the ordinates of the fragility functions
         fragilities = {"EDP": self.edp_range, "ITEMs": {}}
         for item in range(len(data)):
-            fragilities["ITEMs"][item+1+n_items] = {}
-            for ds in range(5):
-                mean = np.exp(np.log(means_fr[item][ds])-0.5*np.log(covs_fr[item][ds]**2+1))
-                std = np.log(covs_fr[item][ds]**2+1)**0.5
+            fragilities["ITEMs"][item + 1] = {}
+            for ds in range(max_ds_selected):
+                mean = np.exp(np.log(means_fr[item][ds]) - 0.5 * np.log(covs_fr[item][ds] ** 2 + 1))
+                std = np.log(covs_fr[item][ds] ** 2 + 1) ** 0.5
                 if mean == 0 and std == 0:
-                    fragilities["ITEMs"][item+1+n_items][f"DS{ds+1}"] = np.zeros(len(self.edp_range))
+                    fragilities["ITEMs"][item + 1][f"DS{ds + 1}"] = np.zeros(len(self.edp_range))
                 else:
-                    frag = stats.norm.cdf(np.log(self.edp_range/mean)/std, loc=0, scale=1)
+                    frag = stats.norm.cdf(np.log(self.edp_range / mean) / std, loc=0, scale=1)
                     frag[np.isnan(frag)] = 0
-                    fragilities["ITEMs"][item+1+n_items][f"DS{ds+1}"] = frag
+                    fragilities["ITEMs"][item + 1][f"DS{ds + 1}"] = frag
         
         return fragilities, means_cost, covs_cost
-    
-    def get_DS_probs(self, component_data, fragilities):
-        """
-        Evaluates probabilities of having each damage state for every EDP
-        :param component_data: DataFrame        DataFrame containing the component data
-        :param fragilities: dict                Fragilities of all components at all DSs
-        :return: dict                           Probabilities of beining in a given DS
-        """
-        num_items = len(component_data)
-        
-        if self.correlation == "Independent":
-            # Evaluating probability of having each damage state for every EDP
-            # Items
-            damage_probs = {}
-            for item in fragilities["ITEMs"]:
-                damage_probs[item] = {}
-                # DS
-                for ds in range(6):
-                    y = fragilities["ITEMs"][item]
-                    if ds == 0:
-                        damage_probs[item][f"DS{ds}"] = 1 - y[f"DS{ds+1}"]
-                    elif ds == 5:
-                        damage_probs[item][f"DS{ds}"] = y[f"DS{ds}"]
-                    else:
-                        damage_probs[item][f"DS{ds}"] = y[f"DS{ds}"] - y[f"DS{ds+1}"] 
-            return damage_probs
-    
+
     def perform_Monte_Carlo(self, fragilities, corr_tree=None):
         """ 
         Performs Monte Carlo simulations and simulates DS for each EDP step
@@ -298,8 +322,8 @@ class SLF:
         :param corr_tree: ndarray               Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
         """
-        num_items = len(fragilities["ITEMs"])
-        ds_range = np.arange(0, 6, 1)
+        num_ds = len(fragilities["ITEMs"][1])
+        ds_range = np.arange(0, num_ds + 1, 1)
         num_edp = len(fragilities["EDP"])
         damage_state = {}
         if self.correlation == "Independent":
@@ -313,9 +337,9 @@ class SLF:
                     random_array = np.random.rand(num_edp)
                     damage = np.zeros(num_edp)
                     # DS
-                    for ds in range(5, 0, -1):
+                    for ds in range(num_ds, 0, -1):
                         y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                        if ds == 5:
+                        if ds == num_ds:
                             damage = np.where(random_array <= y1, ds_range[ds], damage)
                         else:
                             y = fragilities["ITEMs"][item][f"DS{ds+1}"]
@@ -335,9 +359,9 @@ class SLF:
                         random_array = np.random.rand(num_edp)
                         damage = np.zeros(num_edp)
                         # DS
-                        for ds in range(5, 0, -1):
+                        for ds in range(num_ds, 0, -1):
                             y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                            if ds == 5:
+                            if ds == num_ds:
                                 damage = np.where(random_array <= y1, ds_range[ds], damage)
                             else:
                                 y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
@@ -362,7 +386,8 @@ class SLF:
         :return: dict                           Damage states of each component for each simulation
         """
         num_items = len(damage_state)
-        ds_range = np.arange(0, 6, 1)
+        num_ds = len(fragilities["ITEMs"][1])
+        ds_range = np.arange(0, num_ds + 1, 1)
         iteration = 1
         test = 0
         for i in damage_state:
@@ -399,7 +424,7 @@ class SLF:
                                 min_ds[item+1][edp][n] = matrix[item][1+int(damage_state[matrix[item][0]][n][edp])]
                                 # Recalculates the probability of having each DS in the condition of having a min DS
                                 # Damage states.
-                                for ds in range(5):
+                                for ds in range(num_ds):
                                     # All DS smaller than min_DS have a probability of 1 of being observed
                                     if min_ds[item+1][edp][n] >= ds + 1:
                                         # probability of having DS >= min_k
@@ -418,8 +443,8 @@ class SLF:
                                             
                                 # Simulates the DS at the given EDP, for the new set of probabilities
                                 rand_value = np.random.rand(1)[0]
-                                for ds in range(5, 0, -1):
-                                    if ds == 5:
+                                for ds in range(num_ds, 0, -1):
+                                    if ds == num_ds:
                                         if rand_value <= y_new[item+1][edp][n][ds-1]:
                                             damage = ds_range[ds]
                                         else:
@@ -447,12 +472,15 @@ class SLF:
         :param covs_cost: ndarray                       Covariances of repair costs
         :return: dict                                   Repair costs
         """
+        # Number of damage states
+        num_ds = means_cost.shape[1]
+
         repair_cost = {}
         idx = 0
         for item in damage_state.keys():
             repair_cost[item] = {}
             for n in range(self.n_realizations):
-                for ds in range(6):
+                for ds in range(num_ds + 1):
                     if ds == 0:
                         repair_cost[item][n] = np.where(damage_state[item][n] == ds, ds, -1)
                     
@@ -472,14 +500,14 @@ class SLF:
                             else:
                                 a = np.random.normal(means_cost[idx][ds-1], covs_cost[idx][ds-1]*means_cost[idx][ds-1])
                                 while a < 0:
-                                    a = np.random.normal(means_cost[idx][ds-1], covs_cost[idx][ds-1]*
+                                    a = np.random.normal(means_cost[idx][ds-1], covs_cost[idx][ds-1] *
                                                          means_cost[idx][ds-1])
                             
                             repair_cost[item][n][idx_repair] = a
             idx += 1
         
         # Evaluate the total damage cost multiplying the individual cost by each element quantity
-        quantities = component_data["Quantity"]
+        quantities = component_data["Quantity"]             # Component quantities
         total_repair_cost = {}                              # Total repair costs
         replacement_cost = {}                               # Replacement costs
         loss_ratios = {}                                    # Loss ratios
@@ -508,7 +536,7 @@ class SLF:
         for n in range(self.n_realizations):
             total_loss_storey_ratio[n] = total_loss_storey[n]/total_replacement_cost
         
-        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost, total_repair_cost
+        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost
     
     def perform_regression(self, total_loss_storey, total_loss_ratio, edp, percentiles=None):
         """
@@ -543,21 +571,27 @@ class SLF:
         if self.regression == "Weibull":
             def fitting_function(x, a, b, c):
                 return a*(1 - np.exp(-(x/b)**c))
+
         elif self.regression == "Papadopoulos":
             def fitting_function(x, a, b, c, d, e):
-                return (e*x**a/(b**a + x**a) + (1-e)*x**c/(d**c + x**c))
+                return e*x**a/(b**a + x**a) + (1-e)*x**c/(d**c + x**c)
+
         else:
             raise ValueError("[EXCEPTION] Wrong type of regression function")
         
         losses_fitted = {}
+        fitting_parameters = {}
         for q in percentiles:
             popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc[q], maxfev=10**6)
             losses_fitted[q] = fitting_function(edp_range, *popt)
+            fitting_parameters[q] = {"popt": popt, "pcov": pcov}
             
         popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc['mean'], maxfev=10**6)
         losses_fitted['mean'] = fitting_function(edp_range, *popt)
-        
-        return losses, losses_fitted
+
+        fitting_parameters['mean'] = {"popt": popt, "pcov": pcov}
+
+        return losses, losses_fitted, fitting_parameters
     
     def get_in_euros(self, losses, total_replacement_cost):
         """
@@ -585,7 +619,7 @@ class SLF:
         
         slfs = {}
         for key in outputs:
-            slfs[key] = outputs[key]['edp_dv_fitted']['mean'] / total_story_cost
+            slfs[key] = outputs[key]['edp_dv_euro']['mean'] / total_story_cost
             
         return slfs
         
@@ -660,26 +694,20 @@ class SLF:
                 if not component_groups[group].empty:
                     component_data = component_groups[group]
                     matrix = self.get_correlation_tree(component_data)
-                    edp = group[0:3]
+                    edp = component_data["EDP"].iloc[0]
                     self.get_edp_range(edp)
-                    # Get number of items of the previous performance group
-                    if cnt == 0:
-                        n_items = 0
-                    else:
-                        n_items = sum(items_per_group[:cnt])
-                    
-                    fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
-                    damage_probs = self.get_DS_probs(component_data, fragilities)
+
+                    fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data)
                     damage_state = self.perform_Monte_Carlo(fragilities, matrix)
                     damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
-                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost, total_repair_cost = \
+                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
                         self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-                    losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
+                    losses, losses_fitted, fitting_pars = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
                     edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
                     outputs[group] = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities,
                                        'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted,
                                        'edp_dv_euro': edp_dv_functions, 'total_replacement_cost': total_replacement_cost, 
-                                       'total_loss_storey': total_loss_storey, "total_repair_cost": total_repair_cost}
+                                       'total_loss_storey': total_loss_storey, "fit_pars": fitting_pars}
                     
                     cnt += 1
             
@@ -703,8 +731,8 @@ if __name__ == "__main__":
     edp_bin                     Step of edp
     n_realizations              number of simulations per edp
     """
-    slf = SLF("nspfa_p", "nspfa_inv.csv", "nspfa_corr.csv", correlation="Correlated", n_realizations=3200,
-              sflag=True, do_grouping=False, regression="Papadopoulos")
+    slf = SLF("test1", "component_data2.csv", "correlation_tree2.csv", correlation="Correlated", n_realizations=20,
+              sflag=True, do_grouping=False, regression="Weibull")
     run_master = True
     if run_master:
         outputs = slf.master(sensitivityflag=False)
