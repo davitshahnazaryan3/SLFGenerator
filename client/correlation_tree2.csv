@@ -1,7 +1,0 @@
-ITEM,DEPENDANT ON ITEM,MIN DS|DS0,MIN DS|DS1,MIN DS|DS2,MIN DS|DS3,MIN DS|DS4,MIN DS|DS5
-1,Independent,Independent,Independent,Independent,Independent,Independent,Independent
-2,Independent,Independent,Independent,Independent,Independent,Independent,Independent
-3,Independent,Independent,Independent,Independent,Independent,Independent,Independent
-4,Independent,Independent,Independent,Independent,Independent,Independent,Independent
-5,1,Undamaged,Undamaged,DS1,DS1,DS2,DS3
-6,2,Undamaged,Undamaged,Undamaged,DS1,DS2,DS3

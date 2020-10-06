@@ -30,6 +30,7 @@ class Root(tk.Tk):
         self.pfa_bin_entry = None
         self.n_realizations = None
         self.conversion_factor = None
+        self.replCost = None
         self.perform_grouping = None
         self.cache = None
         self.outputs = None
@@ -364,14 +365,19 @@ class Root(tk.Tk):
         conversion_label.grid(row=row_id + 5, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
         self.conversion_factor = self.create_entry(row_id + 6, "Conversion factor", "", 1.0)
 
+        # Conversion factor
+        replCost_label = tk.Label(self.frame, text="Replacement Cost", font=f"{self.default_font} 12 bold")
+        replCost_label.grid(row=row_id + 7, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        self.replCost = self.create_entry(row_id + 8, "Replacement Cost", "", 0.0)
+
         # Radio button for performance grouping
         grouping_label = tk.Label(self.frame, text="Apply Performance Grouping", font=f"{self.default_font} 12 bold")
-        grouping_label.grid(row=row_id + 7, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        grouping_label.grid(row=row_id + 9, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
         self.MODES = [("Yes", 1),
                       ("No", 0)]
         self.perform_grouping = tk.IntVar()
         self.perform_grouping.set(0)
-        row_id = self.create_radio_button(row_id + 8, self.perform_grouping)
+        row_id = self.create_radio_button(row_id + 10, self.perform_grouping)
 
         # Run button
         tk.Button(self.frame, text='Run', command=self.run_slf).grid(row=27, column=0, columnspan=2, sticky=tk.W,
@@ -460,7 +466,10 @@ class Root(tk.Tk):
             # Reads component data file
             component_data = self.data["Component Data"].copy()
             # Reads correlation tree data file
-            correlation_tree = self.data["Correlation Tree"].copy()
+            try:
+                correlation_tree = self.data["Correlation Tree"].copy()
+            except:
+                correlation_tree = None
             # Gets correlation type for analysis defined by the user
             correlation_type = self.correlation_type_variable.get()
             # Gets regression function type for analysis defined by the user
@@ -473,6 +482,8 @@ class Root(tk.Tk):
             n_realizations = int(self.n_realizations.get())
             # Conversion factor for costs, costs_provided * conversion_factor
             conversion_factor = float(self.conversion_factor.get())
+            # Replacement cost of the building, used for normalization
+            replCost = float(self.replCost.get())
 
             # Verify integrity of inputs
             if any(x <= 0.0 for x in [n_realizations, conversion_factor] + edp_bin):
@@ -481,7 +492,7 @@ class Root(tk.Tk):
                 pass
                 """ Runs SLF generator """
                 slf = SLF(project_name, component_data, correlation_tree, edp_bin, correlation_type, regression_type,
-                          n_realizations, conversion_factor, do_grouping)
+                          n_realizations, conversion_factor, replCost, do_grouping)
                 # Obtains the outputs
                 self.outputs, self.cache = slf.master()
 
@@ -788,8 +799,12 @@ class VIZ:
         for key in component["edp_dv_euro"].keys():
             y_fit = component["edp_dv_euro"][key] / 10.0**3
             y = component["losses"]["loss_curve"].loc[key] / 10.0**3
-            ax.plot(edp_range, y, color=self.color_grid[cnt], label=key, alpha=0.5, marker='o', markersize=3)
-            ax.plot(edp_range, y_fit, color=self.color_grid[cnt], label=key)
+            if key == "mean":
+                label = key
+            else:
+                label = f"{int(key*100)}%"
+            ax.plot(edp_range, y, color=self.color_grid[cnt], label=label, alpha=0.5, marker='o', markersize=3)
+            ax.plot(edp_range, y_fit, color=self.color_grid[cnt], label=label)
             cnt += 2
 
         # Plotting the scatters of the Monte Carlo simulations
@@ -816,11 +831,11 @@ class VIZ:
         edp_type = self.data[edp]["component"]["EDP"].iloc[0]
         if edp_type in ["IDR", "IDR NS", "IDR S"]:
             xlabel = edp_type[0:3] + " [%]"
-            xlim = [0, 10.0]
+            xlim = [0, 5.0]
         else:
             xlabel = edp_type[0:3] + " [g]"
             xlim = [0, 4.0]
-        ylim = [0, max(y_fit) + 100.0]
+        ylim = [0, max(y_fit) + 50.0]
 
         # Annotating
         fig.text(0.1, 0.95, regressionLabel, horizontalalignment='left', verticalalignment="top")

@@ -235,7 +235,7 @@ class SLF:
         # Create the correlation matrix
         items = correlation_tree.values[:, 0]
         c_tree = np.delete(correlation_tree.values, 0, 1)
-        matrix = np.zeros((c_tree.shape[0], c_tree.shape[1]))
+        matrix = np.zeros((c_tree.shape[0], c_tree.shape[1]), dtype=int)
         for j in range(c_tree.shape[1]):
             for i in range(c_tree.shape[0]):
                 if j == 0:
@@ -315,152 +315,73 @@ class SLF:
         
         return fragilities, means_cost, covs_cost
 
-    def perform_Monte_Carlo(self, fragilities, corr_tree=None):
-        """ 
+    def perform_Monte_Carlo(self, fragilities):
+        """
         Performs Monte Carlo simulations and simulates DS for each EDP step
         :param fragilities: dict                Fragilities of all components at all DSs
-        :param corr_tree: ndarray               Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
         """
         num_ds = len(fragilities["ITEMs"][1])
         ds_range = np.arange(0, num_ds + 1, 1)
         num_edp = len(fragilities["EDP"])
         damage_state = {}
-        if self.correlation == "Independent":
-            # Evaluate the DS on the i-th component for EDPs at the n-th simulation
-            # Items
-            for item in fragilities["ITEMs"]:
-                damage_state[item] = {}
-                # Simulations
-                for n in range(self.n_realizations):
-                    # Generate random data between (0, 1)
-                    random_array = np.random.rand(num_edp)
-                    damage = np.zeros(num_edp)
-                    # DS
-                    for ds in range(num_ds, 0, -1):
-                        y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                        if ds == num_ds:
-                            damage = np.where(random_array <= y1, ds_range[ds], damage)
-                        else:
-                            y = fragilities["ITEMs"][item][f"DS{ds+1}"]
-                            damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
-                    damage_state[item][n] = damage
-            return damage_state
         
-        elif self.correlation == "Correlated":
-            if corr_tree is None:
-                raise ValueError("[EXCEPTION] Correlation matrix is missing")
-            
-            idx = 0
-            for item in fragilities["ITEMs"]:
-                damage_state[item] = {}
-                for n in range(self.n_realizations):
-                    if corr_tree[idx][0] == item:
-                        random_array = np.random.rand(num_edp)
-                        damage = np.zeros(num_edp)
-                        # DS
-                        for ds in range(num_ds, 0, -1):
-                            y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                            if ds == num_ds:
-                                damage = np.where(random_array <= y1, ds_range[ds], damage)
-                            else:
-                                y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                                damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
-                        damage_state[item][n] = damage
+        # Evaluate the DS on the i-th component for EDPs at the n-th simulation
+        # Items
+        for item in fragilities["ITEMs"]:
+            damage_state[item] = {}
+            # Simulations
+            for n in range(self.n_realizations):
+                # Generate random data between (0, 1)
+                random_array = np.random.rand(num_edp)
+                damage = np.zeros(num_edp, dtype=int)
+                # DS
+                for ds in range(num_ds, 0, -1):
+                    y1 = fragilities["ITEMs"][item][f"DS{ds}"]
+                    if ds == num_ds:
+                        damage = np.where(random_array <= y1, ds_range[ds], damage)
                     else:
-                        # -1 to indicate no assignment to a final DS to sub correlated elements
-                        damage_state[item][n] = np.zeros(num_edp) - 1
-                idx += 1
-                
-            return damage_state
-        
-        else:
-            raise ValueError("[EXCEPTION] Wrong type of correlation, must be 'Independent' or 'Correlated'")
-        
-    def test_correlated_data(self, damage_state, matrix, fragilities):
+                        y = fragilities["ITEMs"][item][f"DS{ds+1}"]
+                        damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
+                damage_state[item][n] = damage
+        return damage_state
+    
+    def test_correlated_data(self, damage_state, matrix):
         """
         Tests if any non-assigned DS exist (i.e. -1) and makes correction if necessary
         :param damage_state: dict               Damage states of each component for each simulation
         :param matrix: ndarray                  Correlation tree matrix
-        :param fragilities: dict                Fragilities of all components at all DSs
         :return: dict                           Damage states of each component for each simulation
         """
-        num_items = len(damage_state)
-        num_ds = len(fragilities["ITEMs"][1])
-        ds_range = np.arange(0, num_ds + 1, 1)
-        iteration = 1
-        test = 0
-        for i in damage_state:
-            for j in damage_state[i]:
-                test += sum(damage_state[i][j] == -1)
-        
-        # Start the iterations
-        min_ds = {}
-        y_new = {}
-        while test != 0:
-            iteration += 1
-            
-            # Items
-            for item in range(num_items):
-                min_ds[item+1] = {}
-                y_new[item+1] = {}
+        # Loop over each component
+        for i in range(matrix.shape[0]):
+            # Check if component is correlated or independent
+            if i + 1 != matrix[i][0]:
+                # -- Component is correlated 
+                # Causation component ID
+                m = matrix[i][0]
+                # Correlated component ID
+                j = i + 1
+                # Loop for each simulation
+                for n in range(self.n_realizations):
+                    causation_ds = damage_state[m][n]
+                    correlated_ds = damage_state[j][n]
+                   
+                    # Get correlated components DS conditioned on causation component
+                    temp = np.zeros((causation_ds.shape))
+                    # Loop over each DS
+                    for ds in range(1, matrix.shape[1]):
+                        if ds == 1:
+                            temp = np.where(causation_ds==ds-1, matrix[j-1][ds], causation_ds)
+                        else: 
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                  
+                    # Modify DS if correlated component is conditioned on causation component's DS, otherwise skip                
+                    damage_state[j][n] = np.maximum(correlated_ds, temp)
 
-                # EDP values
-                for edp in range(len(self.edp_range)):
-                    min_ds[item+1][edp] = {}
-                    y_new[item+1][edp] = {}
-                    
-                    # Simulations
-                    for n in range(self.n_realizations):
-                        y_new[item+1][edp][n] = {}
-                        # Find the DS on the causation element
-                        if damage_state[item+1][n][edp] == -1:
-                            # if the causation element still has not been assigned a DS
-                            if damage_state[int(matrix[item][0])][n][edp] == -1:
-                                # The marker will make the engine simulate the DS at the successive iteration
-                                damage_state[item+1][n][edp] = -1
-                            else:
-                                # Finds the minimum DS for the i-th element
-                                min_ds[item+1][edp][n] = matrix[item][1+int(damage_state[matrix[item][0]][n][edp])]
-                                # Recalculates the probability of having each DS in the condition of having a min DS
-                                # Damage states.
-                                for ds in range(num_ds):
-                                    # All DS smaller than min_DS have a probability of 1 of being observed
-                                    if min_ds[item+1][edp][n] >= ds + 1:
-                                        # probability of having DS >= min_k
-                                        y_new[item+1][edp][n][ds+1] = 1
-                                        # if min_DS is zero then the probabilities are unchanged
-                                    elif min_ds[item+1][edp][n] == 0:
-                                        y = fragilities["ITEMs"][item+1][f"DS{ds+1}"]
-                                        y_new[item+1][edp][n][ds+1] = y[edp]
-                                    else:
-                                        # conditional probability of having DS >= DS_ds given min_DS
-                                        y = fragilities["ITEMs"][item+1][f"DS{ds+1}"]
-                                        y1 = fragilities["ITEMs"][item+1][f"DS{int(min_ds[item+1][edp][n])+1}"]
-                                        y_new[item+1][edp][n][ds+1] = y[edp]/y1[edp]
-                                        if math.isnan(y_new[item+1][edp][n][ds+1]):
-                                            y_new[item+1][edp][n][ds+1] = 0
-                                            
-                                # Simulates the DS at the given EDP, for the new set of probabilities
-                                rand_value = np.random.rand(1)[0]
-                                for ds in range(num_ds, 0, -1):
-                                    if ds == num_ds:
-                                        if rand_value <= y_new[item+1][edp][n][ds-1]:
-                                            damage = ds_range[ds]
-                                        else:
-                                            damage = 0
-                                    else:
-                                        if y_new[item+1][edp][n][ds+1] <= rand_value < y_new[item+1][edp][n][ds]:
-                                            damage = ds_range[ds]
-                                        else:
-                                            damage = damage
-                                    damage_state[item+1][n][edp] = damage
-            test = 0
-            for i in damage_state:
-                for j in damage_state[i]:
-                    test += sum(damage_state[i][j] == -1)
-                    
-        print(f"[ITERATIONS] {iteration} iterations to reach solution")
         return damage_state
     
     def calculate_loss(self, component_data, damage_state, means_cost, covs_cost):
@@ -731,9 +652,9 @@ if __name__ == "__main__":
     edp_bin                     Step of edp
     n_realizations              number of simulations per edp
     """
-    slf = SLF("test1", "component_data2.csv", "correlation_tree2.csv", correlation="Correlated", n_realizations=20,
-              sflag=True, do_grouping=False, regression="Weibull")
-    run_master = True
+    slf = SLF("test1", "test/idr_inv.csv", "test/idr_corr.csv", correlation="Correlated", n_realizations=100,
+              sflag=False, do_grouping=False, regression="Weibull")
+    run_master = False
     if run_master:
         outputs = slf.master(sensitivityflag=False)
     else:
@@ -743,7 +664,6 @@ if __name__ == "__main__":
         for key in component_groups.keys():
             items_per_group.append(len(component_groups[key]))
             
-        cnt = 0
         ouputs = {}
         for group in component_groups:
             if not component_groups[group].empty:
@@ -752,22 +672,56 @@ if __name__ == "__main__":
                 edp = group[0:3]
                 slf.get_edp_range(edp)
                 
-                if cnt == 0:
-                    n_items = 0
-                else:
-                    n_items = sum(items_per_group[:cnt])
-                
-                fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data, n_items)
-                damage_probs = slf.get_DS_probs(component_data, fragilities)
-                damage_state = slf.perform_Monte_Carlo(fragilities, matrix)
+                fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data)
+                damage_state = slf.perform_Monte_Carlo(fragilities)
                 damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
-                loss_ratios, total_loss_storey, total_loss_ratio, total_loss, repair_cost = slf.calculate_loss(component_data,
-                                                                                                 damage_state,
-                                                                                                 means_cost, covs_cost)
-                losses, losses_fitted = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
-#                edp_dv_functions = slf.get_in_euros(losses_fitted, total_loss)
+                # loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
+                #     slf.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+                # losses, losses_fitted, fitting_pars = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
+                # edp_dv_functions = slf.get_in_euros(losses_fitted, total_replacement_cost)
+                
 
-                cnt += 1
+    # import matplotlib.pyplot as plt
+    # fig1, ax = plt.subplots(figsize=(4, 3), dpi=100)
+    # edp = fragilities["EDP"]
+    # for i in range(1, 4):
+    #     prob1 = fragilities["ITEMs"][1][f"DS{i}"]
+    #     prob2 = fragilities["ITEMs"][2][f"DS{i}"]
+    #     if i == 3:
+    #         label1 = "Causation component"
+    #         label2 = "Dependent component"
+    #     else:
+    #         label1 = label2 = None
+    #     plt.plot(edp*100, prob1, color="b", marker="*", markevery=5, label=label1)
+    #     plt.plot(edp*100, prob2, color="r", ls="--", marker="o", markevery=5, label=label2)
+    # plt.grid(True, which="major", axis="both", ls="--", lw=1.0)
+    # plt.ylim(0, 1)
+    # plt.xlim(0, 5)
+    # plt.xlabel("IDR [%]")
+    # plt.ylabel("P[D>DS| IDR]")
+    # ax.legend(loc='best', frameon=False)
     
-                if cnt == 1:
-                    break
+#    loss = edp_dv_functions["mean"]/1000
+#    fig2, ax = plt.subplots(figsize=(4, 3), dpi=100)
+#    plt.plot(edp*100, loss, label="Independent", marker="o", markevery=5)
+#    plt.grid(True, which="major", axis="both", ls="--", lw=1.0)
+#    plt.ylim(0, 120)
+#    plt.xlim(0, 5)
+#    print(loss[20])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -27,15 +27,15 @@ warnings.filterwarnings('ignore')
 
 
 class SLF:
-    def __init__(self, project_name, component_data, correlation_tree, edp_bin=None, correlation="Correlated",
-                 regression="Weibull", n_realizations=20, conversion=1.0, do_grouping=True):
+    def __init__(self, project_name, component_data, correlation_tree=None, edp_bin=None, correlation="Correlated",
+                 regression="Weibull", n_realizations=20, conversion=1.0, replCost=0.0, do_grouping=True):
         """
         Initialization of the Master Generator
         TODO, add option for mutually exclusive damage states
         TODO, include possibility of including quantity uncertainties along with the mean values
         :param project_name: str                Name of the project to save in the database
-        :param component_data: str              Component data file name, e.g. "*.csv"
-        :param correlation_tree: str            Correlation tree file name, e.g. "*.csv"
+        :param component_data: dict             Component data inventory
+        :param correlation_tree: dict           Correlation tree
         :param edp_bin: float                   EDP sampling unit, % for IDR, g for PFA (non-negative)
         :param correlation: str                 Whether the elements are "Independent" or "Correlated"
         :param regression: str                  Whether the regression function is based on "Weibull" or "Papadopoulos"
@@ -43,6 +43,7 @@ class SLF:
         :param conversion: float                Conversion factor from usd to euro, e.g. if provided in euro, use 1.0;
                                                 if 1 usd = 0.88euro, use 0.88
                                                 or use 1.0 if ratios are used directly
+        :param replCost: float                  Replacement cost of the building (used when normalizing the SLFs)
         :param do_grouping: bool                Whether to do performance grouping or use the entire component database
         """
         if edp_bin is None:
@@ -57,6 +58,7 @@ class SLF:
         self.regression = regression
         self.n_realizations = n_realizations
         self.conversion = conversion
+        self.replCost = replCost
         self.do_grouping = do_grouping
         self.edp_range = None
 
@@ -223,7 +225,7 @@ class SLF:
         # Create the correlation matrix
         items = correlation_tree.values[:, 0]
         c_tree = np.delete(correlation_tree.values, 0, 1)
-        matrix = np.zeros((c_tree.shape[0], c_tree.shape[1]))
+        matrix = np.zeros((c_tree.shape[0], c_tree.shape[1]), dtype=int)
         for j in range(c_tree.shape[1]):
             for i in range(c_tree.shape[0]):
                 if j == 0:
@@ -339,56 +341,26 @@ class SLF:
         ds_range = np.arange(0, num_ds + 1, 1)
         num_edp = len(fragilities["EDP"])
         damage_state = {}
-        if self.correlation == "Independent":
-            # Evaluate the DS on the i-th component for EDPs at the n-th simulation
-            # Items
-            for item in fragilities["ITEMs"]:
-                damage_state[item] = {}
-                # Simulations
-                for n in range(self.n_realizations):
-                    # Generate random data between (0, 1)
-                    random_array = np.random.rand(num_edp)
-                    damage = np.zeros(num_edp)
-                    # DS
-                    for ds in range(num_ds, 0, -1):
-                        y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                        if ds == num_ds:
-                            damage = np.where(random_array <= y1, ds_range[ds], damage)
-                        else:
-                            y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                            damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
-                    damage_state[item][n] = damage
-            return damage_state
 
-        elif self.correlation == "Correlated":
-            if corr_tree is None:
-                raise ValueError("[EXCEPTION] Correlation matrix is missing")
-
-            idx = 0
-            for item in fragilities["ITEMs"]:
-                damage_state[item] = {}
-                for n in range(self.n_realizations):
-                    if corr_tree[idx][0] == item:
-                        random_array = np.random.rand(num_edp)
-                        damage = np.zeros(num_edp)
-                        # DS
-                        for ds in range(num_ds, 0, -1):
-                            y1 = fragilities["ITEMs"][item][f"DS{ds}"]
-                            if ds == num_ds:
-                                damage = np.where(random_array <= y1, ds_range[ds], damage)
-                            else:
-                                y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
-                                damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
-                        damage_state[item][n] = damage
+        # Evaluate the DS on the i-th component for EDPs at the n-th simulation
+        # Items
+        for item in fragilities["ITEMs"]:
+            damage_state[item] = {}
+            # Simulations
+            for n in range(self.n_realizations):
+                # Generate random data between (0, 1)
+                random_array = np.random.rand(num_edp)
+                damage = np.zeros(num_edp, dtype=int)
+                # DS
+                for ds in range(num_ds, 0, -1):
+                    y1 = fragilities["ITEMs"][item][f"DS{ds}"]
+                    if ds == num_ds:
+                        damage = np.where(random_array <= y1, ds_range[ds], damage)
                     else:
-                        # -1 to indicate no assignment to a final DS to sub correlated elements
-                        damage_state[item][n] = np.zeros(num_edp) - 1
-                idx += 1
-
-            return damage_state
-
-        else:
-            raise ValueError("[EXCEPTION] Wrong type of correlation, must be 'Independent' or 'Correlated'")
+                        y = fragilities["ITEMs"][item][f"DS{ds + 1}"]
+                        damage = np.where((random_array >= y) & (random_array < y1), ds_range[ds], damage)
+                damage_state[item][n] = damage
+        return damage_state
 
     def test_correlated_data(self, damage_state, matrix, fragilities):
         """
@@ -398,84 +370,35 @@ class SLF:
         :param fragilities: dict                Fragility functions of all components at all DSs
         :return: dict                           Damage states of each component for each simulation
         """
-        num_items = len(damage_state)
-        num_ds = len(fragilities["ITEMs"][1])
-        ds_range = np.arange(0, num_ds + 1, 1)
-        iteration = 1
-        test = 0
-        for i in damage_state:
-            for j in damage_state[i]:
-                test += sum(damage_state[i][j] == -1)
+        # Loop over each component
+        for i in range(matrix.shape[0]):
+            # Check if component is correlated or independent
+            if i + 1 != matrix[i][0]:
+                # -- Component is correlated
+                # Causation component ID
+                m = matrix[i][0]
+                # Correlated component ID
+                j = i + 1
+                # Loop for each simulation
+                for n in range(self.n_realizations):
+                    causation_ds = damage_state[m][n]
+                    correlated_ds = damage_state[j][n]
 
-        # Start the iterations
-        min_ds = {}
-        y_new = {}
-        while test != 0:
-            iteration += 1
+                    # Get correlated components DS conditioned on causation component
+                    temp = np.zeros((causation_ds.shape))
+                    # Loop over each DS
+                    for ds in range(1, matrix.shape[1]):
+                        if ds == 1:
+                            temp = np.where(causation_ds==ds-1, matrix[j-1][ds], causation_ds)
+                        else:
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
 
-            # Items
-            for item in range(num_items):
-                min_ds[item + 1] = {}
-                y_new[item + 1] = {}
+                    # Modify DS if correlated component is conditioned on causation component's DS, otherwise skip
+                    damage_state[j][n] = np.maximum(correlated_ds, temp)
 
-                # TODO, try avoiding iteration on EDP, not elegant and time consuming
-                # EDP values
-                for edp in range(len(self.edp_range)):
-                    min_ds[item + 1][edp] = {}
-                    y_new[item + 1][edp] = {}
-
-                    # Simulations
-                    for n in range(self.n_realizations):
-                        y_new[item + 1][edp][n] = {}
-                        # Find the DS on the causation element
-                        if damage_state[item + 1][n][edp] == -1:
-                            # if the causation element still has not been assigned a DS
-                            if damage_state[int(matrix[item][0])][n][edp] == -1:
-                                # The marker will make the engine simulate the DS at the successive iteration
-                                damage_state[item + 1][n][edp] = -1
-                            else:
-                                # Finds the minimum DS for the i-th element
-                                min_ds[item + 1][edp][n] = matrix[item][1 + int(damage_state[matrix[item][0]][n][edp])]
-                                # Recalculates the probability of having each DS in the condition of having a min DS
-                                # Damage states
-                                for ds in range(num_ds):
-                                    # All DS smaller than min_DS have a probability of 1 of being observed
-                                    if ds + 1 <= min_ds[item + 1][edp][n]:
-                                        # probability of having DS >= min_k
-                                        y_new[item + 1][edp][n][ds+1] = 1
-                                        # if min_DS is zero then the probabilities are unchanged
-                                    elif min_ds[item + 1][edp][n] == 0:
-                                        y = fragilities["ITEMs"][item + 1][f"DS{ds + 1}"]
-                                        y_new[item + 1][edp][n][ds+1] = y[edp]
-                                    else:
-                                        # conditional probability of having DS >= DS_k given min_DS
-                                        y = fragilities["ITEMs"][item + 1][f"DS{ds + 1}"]
-                                        y1 = fragilities["ITEMs"][item + 1][f"DS{int(min_ds[item + 1][edp][n]) + 1}"]
-                                        y_new[item + 1][edp][n][ds+1] = y[edp] / y1[edp]
-                                        if math.isnan(y_new[item + 1][edp][n][ds+1]):
-                                            y_new[item + 1][edp][n][ds+1] = 0
-
-                                # Simulates the DS at the given EDP, for the new set of probabilities
-                                rand_value = np.random.rand(1)[0]
-                                for ds in range(num_ds, 0, -1):
-                                    if ds == num_ds:
-                                        if rand_value <= y_new[item+1][edp][n][ds-1]:
-                                            damage = ds_range[ds]
-                                        else:
-                                            damage = 0
-                                    else:
-                                        if y_new[item+1][edp][n][ds+1] <= rand_value < y_new[item+1][edp][n][ds]:
-                                            damage = ds_range[ds]
-                                        else:
-                                            damage = damage
-                                    damage_state[item+1][n][edp] = damage
-
-            test = 0
-            for i in damage_state:
-                for j in damage_state[i]:
-                    test += sum(damage_state[i][j] == -1)
-
-        print(f"[ITERATIONS] {iteration} iterations to reach solution")
         return damage_state
 
     def calculate_loss(self, component_data, damage_state, means_cost, covs_cost):
@@ -551,7 +474,11 @@ class SLF:
 
         # Evaluate total loss ratio for the floor segment
         replacement_cost = np.array([replacement_cost[i] for i in replacement_cost])
-        total_replacement_cost = sum(np.array(quantities) * replacement_cost)
+        # Calculate if replCost was set to 0, otherwise use the provided value
+        if self.replCost == 0.0 or self.replCost is None:
+            total_replacement_cost = sum(np.array(quantities) * replacement_cost)
+        else:
+            total_replacement_cost = self.replCost
 
         total_loss_storey_ratio = {}
         for n in range(self.n_realizations):
@@ -648,6 +575,16 @@ class SLF:
 
         return slfs
 
+    def cum_error(self, y, yhat, edp_bin):
+        """
+        Estimates prediction accuracy
+        :param y: ndarray                           Actual values
+        :param yhat: ndarray                        Estimations
+        :return: float                              Maximum error in %
+        """
+        error = edp_bin * sum(abs(y - yhat) / max(y)) * 100
+        return error
+
     def accuracy(self, y, yhat):
         """
         Estimates prediction accuracy
@@ -655,7 +592,7 @@ class SLF:
         :param yhat: ndarray                        Estimations
         :return: float                              Maximum error in %
         """
-        error_max = max(abs(y - yhat)/max(y))*100
+        error_max = max(abs(y - yhat)/max(y)) * 100
         return error_max
 
     def master(self):
@@ -688,7 +625,10 @@ class SLF:
                 component_data = component_groups[group]
 
                 # Obtain correlation matrix
-                matrix = self.get_correlation_tree(component_data)
+                if self.correlation == "Correlated":
+                    matrix = self.get_correlation_tree(component_data)
+                else:
+                    matrix = None
 
                 # EDP name and range
                 edp = component_data["EDP"].iloc[0]
@@ -704,7 +644,8 @@ class SLF:
                 damage_state = self.perform_Monte_Carlo(fragilities, matrix)
 
                 # Populate the damage state matrix for correlated components
-                damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
+                if self.correlation == "Correlated":
+                    damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
 
                 # Perform loss assessment
                 loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
@@ -736,9 +677,10 @@ class SLF:
                                      'fragilities':                 fragilities,
                                      'edp_dv_euro':                 edp_dv_functions,
                                      'losses':                      losses,
-                                     'edp_dv_fitted':               losses_fitted,
+                                     # 'edp_dv_fitted':               losses_fitted,
                                      'total_loss_storey':           total_loss_storey,
                                      'total_replacement_cost':      total_replacement_cost,
+                                     # 'damage_states':              damage_state,
                                      'fit_pars':                    fitting_pars,
                                      'accuracy':                    error_median_max,
                                      "regression":                  self.regression}
