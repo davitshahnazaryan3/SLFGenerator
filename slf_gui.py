@@ -28,6 +28,8 @@ class Root(tk.Tk):
         self.regression_variable = None
         self.idr_bin_entry = None
         self.pfa_bin_entry = None
+        self.precision = None
+        self.conf_level = None
         self.n_realizations = None
         self.conversion_factor = None
         self.replCost = None

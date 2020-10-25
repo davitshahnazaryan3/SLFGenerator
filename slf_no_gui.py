@@ -20,8 +20,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import math
-import pickle
-import json
 from scipy import stats
 from scipy.optimize import curve_fit
 import warnings
@@ -29,9 +27,9 @@ warnings.filterwarnings('ignore')
 
 
 class SLF:
-    def __init__(self, project_name, component_data_filename, correlation_tree_filename, edp_bin=None,
+    def __init__(self, project_name, component_data_filename, correlation_tree_filename=None, edp_bin=None,
                  correlation="Correlated", regression="Weibull", n_realizations=20, conversion=1.0, do_grouping=True,
-                 sflag=True):
+                 replCost=0.0):
         """
         Initialization of the Master Generator
         :param project_name: str                Name of the project to save in the database
@@ -45,7 +43,7 @@ class SLF:
                                                 if 1 usd = 0.88euro, use 0.88
                                                 or use 1.0 if ratios are used directly
         :param do_grouping: bool                Whether to do performance grouping or use the entire component database
-        :param sflag: bool                      Save data
+        :param replCost: float                  Replacement cost to normalize results by
         """
         if edp_bin is None:
             edp_bin = [0.1, 0.05]
@@ -60,8 +58,8 @@ class SLF:
         self.n_realizations = n_realizations
         self.conversion = conversion
         self.do_grouping = do_grouping
-        self.sflag = sflag
         self.edp_range = None
+        self.replCost = replCost
         
     def get_edp_range(self, edp):
         """
@@ -80,25 +78,6 @@ class SLF:
             self.edp_range = np.arange(0, 10.0 + edp_bin, edp_bin)
         else:
             raise ValueError("[EXCEPTION] Wrong EDP type, must be 'IDR'/'PSD' or 'PFA'")
-        
-    def store_results(self, filepath, data, filetype):
-        """
-        Store results in the database
-        :param filepath: str                            Filepath, e.g. "directory/name"
-        :param data:                                    Data to be stored
-        :param filetype: str                            Filetype, e.g. npy, json, pkl, csv
-        :return: None
-        """
-        if filetype == "npy":
-            np.save(f"{filepath}.npy", data)
-        elif filetype == "pkl" or filetype == "pickle":
-            with open(f"{filepath}.pkl", 'wb') as handle:
-                pickle.dump(data, handle)
-        elif filetype == "json":
-            with open(f"{filepath}.json", "w") as json_file:
-                json.dump(data, json_file)
-        elif filetype == "csv":
-            data.to_csv(f"{filepath}.csv")
             
     def get_component_data(self):
         """
@@ -201,14 +180,14 @@ class SLF:
         :param component_data: DataFrame        DataFrame containing the component data
         :return: ndarray                        Correlation tree matrix
         """
-        # Get possible max DS
+        # Get possible max DS (to check compatibility of .csv input files)
         max_DS = []
         ds_limit = []
         for item in component_data.index:
             ds = component_data.loc[item]["Damage States"]
             max_DS.append(f"DS{ds+1}")
             ds_limit.append(ds)
-            
+        
         # Check for errors in the input
         correlation_tree = pd.read_csv(self.dir/"client"/self.correlation_tree_filename)
         
@@ -231,7 +210,7 @@ class SLF:
         # Check that dimensions of the correlation tree and the component data match
         if len(component_data) != len(correlation_tree):
             raise ValueError("[EXCEPTION] Number of items in the correlation tree and component data should match")
-
+        
         # Create the correlation matrix
         items = correlation_tree.values[:, 0]
         c_tree = np.delete(correlation_tree.values, 0, 1)
@@ -252,16 +231,8 @@ class SLF:
                         matrix[i][j] = 0
                     elif c_tree[i][j] == "Undamaged" or c_tree[i][j] == "UNDAMAGED":
                         matrix[i][j] = 0
-                    elif c_tree[i][j] == "DS1":
-                        matrix[i][j] = 1
-                    elif c_tree[i][j] == "DS2":
-                        matrix[i][j] = 2
-                    elif c_tree[i][j] == "DS3":
-                        matrix[i][j] = 3
-                    elif c_tree[i][j] == "DS4":
-                        matrix[i][j] = 4
                     else:
-                        matrix[i][j] = 5
+                        matrix[i][j] = int(c_tree[i][j][-1])
         
         return matrix
 
@@ -276,7 +247,7 @@ class SLF:
         for column in component_data.columns:
             if column.endswith("Median Demand"):
                 max_ds_selected += 1
-            
+        
         # Select only numeric features
         component_data = component_data.select_dtypes(exclude=["object"])
         
@@ -296,7 +267,7 @@ class SLF:
             for ds in range(max_ds_selected):
                 means_fr[item][ds] = data[item][ds]
                 covs_fr[item][ds] = data[item][ds+5]
-                means_cost[item][ds] = data[item][ds+10]*self.conversion
+                means_cost[item][ds] = data[item][ds+10] * self.conversion
                 covs_cost[item][ds] = data[item][ds+15]
                 
         # Deriving the ordinates of the fragility functions
@@ -355,29 +326,23 @@ class SLF:
         """
         # Loop over each component
         for i in range(matrix.shape[0]):
-            # Check if component is correlated or independent
+            # Check if component is dependent or independent
             if i + 1 != matrix[i][0]:
-                # -- Component is correlated 
+                # -- Component is dependent 
                 # Causation component ID
                 m = matrix[i][0]
-                # Correlated component ID
+                # Dependent component ID
                 j = i + 1
                 # Loop for each simulation
                 for n in range(self.n_realizations):
                     causation_ds = damage_state[m][n]
                     correlated_ds = damage_state[j][n]
-                   
-                    # Get correlated components DS conditioned on causation component
-                    temp = np.zeros((causation_ds.shape))
+                    
+                    # Get dependent components DS conditioned on causation component
+                    temp = np.zeros(causation_ds.shape)
                     # Loop over each DS
                     for ds in range(1, matrix.shape[1]):
-                        if ds == 1:
-                            temp = np.where(causation_ds==ds-1, matrix[j-1][ds], causation_ds)
-                        else: 
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                        temp[causation_ds == ds-1] = matrix[j-1][ds]
                   
                     # Modify DS if correlated component is conditioned on causation component's DS, otherwise skip                
                     damage_state[j][n] = np.maximum(correlated_ds, temp)
@@ -395,7 +360,7 @@ class SLF:
         """
         # Number of damage states
         num_ds = means_cost.shape[1]
-
+        
         repair_cost = {}
         idx = 0
         for item in damage_state.keys():
@@ -406,7 +371,9 @@ class SLF:
                         repair_cost[item][n] = np.where(damage_state[item][n] == ds, ds, -1)
                     
                     else:
+                        # Best fit function
                         best_fit = component_data.loc[item-1][f"DS{ds}, best fit"]
+                        # EDP ID where ds is observed
                         idx_list = np.where(damage_state[item][n] == ds)[0]
                         for idx_repair in idx_list:
                             if best_fit == 'normal truncated':
@@ -451,7 +418,11 @@ class SLF:
         
         # Evaluate total loss ratio for the floor segment
         replacement_cost = np.array([replacement_cost[i] for i in replacement_cost])
-        total_replacement_cost = sum(np.array(quantities)*replacement_cost)
+        # Calculate if replCost was set to 0, otherwise use the provided value
+        if self.replCost == 0.0 or self.replCost is None:
+            total_replacement_cost = sum(np.array(quantities) * replacement_cost)
+        else:
+            total_replacement_cost = self.replCost
         
         total_loss_storey_ratio = {}
         for n in range(self.n_realizations):
@@ -544,105 +515,6 @@ class SLF:
             
         return slfs
         
-    def master(self, sensitivityflag=False):
-        """
-        Runs the whole framework
-        :param sensitivityflag: bool                Whether to run both 'independent' and 'correlated' options
-        :return: dict                               Fitted EDP-DV functions
-        """
-        # Perform sensitivity, i.e. run both independent and correlated options
-        if sensitivityflag:
-            correlation = ["Independent", "Correlated"]
-            for c in correlation:
-                self.correlation = c
-                # Read component data
-                component_data = self.get_component_data()
-                component_groups = self.group_components(component_data)
-                items_per_group = []
-                for key in component_groups.keys():
-                    items_per_group.append(len(component_groups[key]))
-                    
-                cnt = 0
-                outputs = {}
-                for group in component_groups:
-                    if not component_groups[group].empty:
-                        component_data = component_groups[group]
-                        matrix = self.get_correlation_tree(component_data)
-                        edp = group[0:3]
-                        self.get_edp_range(edp)
-                        
-                        # Get number of items of the previous performance group
-                        if cnt == 0:
-                            n_items = 0
-                        else:
-                            n_items = sum(items_per_group[:cnt])
-                        
-                        fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data, n_items)
-                        damage_probs = self.get_DS_probs(component_data, fragilities)
-                        damage_state = self.perform_Monte_Carlo(fragilities, matrix)
-                        damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
-                        loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
-                            self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-                        losses, losses_fitted = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
-                        edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
-                        outputs[group] = {'component': component_data, 'correlation_tree': matrix,
-                                          'fragilities': fragilities, 'damage_states': damage_state, 'losses': losses,
-                                          'edp_dv_fitted': losses_fitted, 'edp_dv_euro': edp_dv_functions,
-                                          'total_replacement_cost': total_replacement_cost, 'total_loss_storey': total_loss_storey}
-                        cnt += 1
-                    
-                slfs = self.get_slfs(outputs)
-                outputs['SLFs'] = slfs
-                    
-                if self.sflag:
-                    self.store_results(self.database_dir/f"{self.project_name}_{self.correlation}", outputs, "pkl")
-                    print("[SUCCESS] Successful completion, outputs have been stored!")
-                else:
-                    print("[SUCCESS] Successful completion, outputs have not been stored!")
-                    
-        else:
-            print(f"[INITIATE] Running assuming {self.correlation} components")
-            # Read component data
-            component_data = self.get_component_data()
-            component_groups = self.group_components(component_data)
-            items_per_group = []
-            for key in component_groups.keys():
-                items_per_group.append(len(component_groups[key]))
-                
-            cnt = 0
-            outputs = {}
-            for group in component_groups:
-                if not component_groups[group].empty:
-                    component_data = component_groups[group]
-                    matrix = self.get_correlation_tree(component_data)
-                    edp = component_data["EDP"].iloc[0]
-                    self.get_edp_range(edp)
-
-                    fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data)
-                    damage_state = self.perform_Monte_Carlo(fragilities, matrix)
-                    damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
-                    loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
-                        self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-                    losses, losses_fitted, fitting_pars = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
-                    edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
-                    outputs[group] = {'component': component_data, 'correlation_tree': matrix, 'fragilities': fragilities,
-                                       'damage_states': damage_state, 'losses': losses, 'edp_dv_fitted': losses_fitted,
-                                       'edp_dv_euro': edp_dv_functions, 'total_replacement_cost': total_replacement_cost, 
-                                       'total_loss_storey': total_loss_storey, "fit_pars": fitting_pars}
-                    
-                    cnt += 1
-            
-            slfs = self.get_slfs(outputs)
-            outputs['SLFs'] = slfs
-            
-            if self.sflag:
-                self.store_results(self.database_dir/f"{self.project_name}_{self.correlation}", outputs, "pkl")
-                print("[SUCCESS] Successful completion, outputs have been stored!")
-            else:
-                print("[SUCCESS] Successful completion, outputs have not been stored!")
-        
-        return outputs
-
 
 if __name__ == "__main__":
     """
@@ -652,76 +524,32 @@ if __name__ == "__main__":
     edp_bin                     Step of edp
     n_realizations              number of simulations per edp
     """
-    slf = SLF("test1", "test/idr_inv.csv", "test/idr_corr.csv", correlation="Correlated", n_realizations=100,
-              sflag=False, do_grouping=False, regression="Weibull")
-    run_master = False
-    if run_master:
-        outputs = slf.master(sensitivityflag=False)
-    else:
-        component_data = slf.get_component_data()
-        component_groups = slf.group_components(component_data)
-        items_per_group = []
-        for key in component_groups.keys():
-            items_per_group.append(len(component_groups[key]))
-            
-        ouputs = {}
-        for group in component_groups:
-            if not component_groups[group].empty:
-                component_data = component_groups[group]
-                matrix = slf.get_correlation_tree(component_data)
-                edp = group[0:3]
-                slf.get_edp_range(edp)
-                
-                fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data)
-                damage_state = slf.perform_Monte_Carlo(fragilities)
-                damage_state = slf.test_correlated_data(damage_state, matrix, fragilities)
-                # loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
-                #     slf.calculate_loss(component_data, damage_state, means_cost, covs_cost)
-                # losses, losses_fitted, fitting_pars = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
-                # edp_dv_functions = slf.get_in_euros(losses_fitted, total_replacement_cost)
-                
+    correlation = "Correlated"
+    slf = SLF("test1", "test/idr_inv.csv", "test/idr_corr.csv", correlation=correlation, n_realizations=50,
+              do_grouping=False, regression="Weibull")
 
-    # import matplotlib.pyplot as plt
-    # fig1, ax = plt.subplots(figsize=(4, 3), dpi=100)
-    # edp = fragilities["EDP"]
-    # for i in range(1, 4):
-    #     prob1 = fragilities["ITEMs"][1][f"DS{i}"]
-    #     prob2 = fragilities["ITEMs"][2][f"DS{i}"]
-    #     if i == 3:
-    #         label1 = "Causation component"
-    #         label2 = "Dependent component"
-    #     else:
-    #         label1 = label2 = None
-    #     plt.plot(edp*100, prob1, color="b", marker="*", markevery=5, label=label1)
-    #     plt.plot(edp*100, prob2, color="r", ls="--", marker="o", markevery=5, label=label2)
-    # plt.grid(True, which="major", axis="both", ls="--", lw=1.0)
-    # plt.ylim(0, 1)
-    # plt.xlim(0, 5)
-    # plt.xlabel("IDR [%]")
-    # plt.ylabel("P[D>DS| IDR]")
-    # ax.legend(loc='best', frameon=False)
+    component_data = slf.get_component_data()
+    component_groups = slf.group_components(component_data)
+    items_per_group = []
+    for key in component_groups.keys():
+        items_per_group.append(len(component_groups[key]))
     
-#    loss = edp_dv_functions["mean"]/1000
-#    fig2, ax = plt.subplots(figsize=(4, 3), dpi=100)
-#    plt.plot(edp*100, loss, label="Independent", marker="o", markevery=5)
-#    plt.grid(True, which="major", axis="both", ls="--", lw=1.0)
-#    plt.ylim(0, 120)
-#    plt.xlim(0, 5)
-#    print(loss[20])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    ouputs = {}
+    for group in component_groups:
+        if not component_groups[group].empty:
+            component_data = component_groups[group]
+            if correlation == "Correlated":
+                matrix = slf.get_correlation_tree(component_data)
+            else:
+                matrix = None
+                
+            edp = group[0:3]
+            slf.get_edp_range(edp)
+            
+            fragilities, means_cost, covs_cost = slf.derive_fragility_functions(component_data)
+            damage_state = slf.perform_Monte_Carlo(fragilities)
+            damage_state = slf.test_correlated_data(damage_state, matrix)
+            loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
+                slf.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+            losses, losses_fitted, fitting_pars = slf.perform_regression(total_loss_storey, total_loss_ratio, edp)
+            edp_dv_functions = slf.get_in_euros(losses_fitted, total_replacement_cost)

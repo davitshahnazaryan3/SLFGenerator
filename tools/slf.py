@@ -33,6 +33,7 @@ class SLF:
         Initialization of the Master Generator
         TODO, add option for mutually exclusive damage states
         TODO, include possibility of including quantity uncertainties along with the mean values
+        TODO, add function to calculate the optimal number of realizations to meet a desired confidence level
         :param project_name: str                Name of the project to save in the database
         :param component_data: dict             Component data inventory
         :param correlation_tree: dict           Correlation tree
@@ -242,16 +243,8 @@ class SLF:
                         matrix[i][j] = 0
                     elif c_tree[i][j] == "Undamaged" or c_tree[i][j] == "UNDAMAGED":
                         matrix[i][j] = 0
-                    elif c_tree[i][j] == "DS1":
-                        matrix[i][j] = 1
-                    elif c_tree[i][j] == "DS2":
-                        matrix[i][j] = 2
-                    elif c_tree[i][j] == "DS3":
-                        matrix[i][j] = 3
-                    elif c_tree[i][j] == "DS4":
-                        matrix[i][j] = 4
                     else:
-                        matrix[i][j] = 5
+                        matrix[i][j] = int(c_tree[i][j][-1])
 
         return matrix
 
@@ -306,10 +299,9 @@ class SLF:
 
         return fragilities, means_cost, covs_cost
 
-    def get_DS_probs(self, component_data, fragilities):
+    def get_DS_probs(self, fragilities):
         """
         Evaluates probabilities of having each damage state for every EDP
-        :param component_data: DataFrame        DataFrame containing the component data
         :param fragilities: dict                Fragility functions of all components at all DSs
         :return: dict                           Probabilities of being in a given DS
         """
@@ -330,11 +322,10 @@ class SLF:
                         damage_probs[item][f"DS{ds}"] = y[f"DS{ds}"] - y[f"DS{ds + 1}"]
             return damage_probs
 
-    def perform_Monte_Carlo(self, fragilities, corr_tree=None):
+    def perform_Monte_Carlo(self, fragilities):
         """
         Performs Monte Carlo simulations and simulates DS for each EDP step
         :param fragilities: dict                Fragility functions of all components at all DSs
-        :param corr_tree: ndarray               Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
         """
         num_ds = len(fragilities["ITEMs"][1])
@@ -362,39 +353,32 @@ class SLF:
                 damage_state[item][n] = damage
         return damage_state
 
-    def test_correlated_data(self, damage_state, matrix, fragilities):
+    def test_correlated_data(self, damage_state, matrix):
         """
         Tests if any non-assigned DS exist (i.e. -1) and makes correction if necessary
         :param damage_state: dict               Damage states of each component for each simulation
         :param matrix: ndarray                  Correlation tree matrix
-        :param fragilities: dict                Fragility functions of all components at all DSs
         :return: dict                           Damage states of each component for each simulation
         """
         # Loop over each component
         for i in range(matrix.shape[0]):
-            # Check if component is correlated or independent
+            # Check if component is dependent or independent
             if i + 1 != matrix[i][0]:
-                # -- Component is correlated
+                # -- Component is dependent
                 # Causation component ID
                 m = matrix[i][0]
-                # Correlated component ID
+                # Dependent component ID
                 j = i + 1
                 # Loop for each simulation
                 for n in range(self.n_realizations):
                     causation_ds = damage_state[m][n]
                     correlated_ds = damage_state[j][n]
 
-                    # Get correlated components DS conditioned on causation component
-                    temp = np.zeros((causation_ds.shape))
+                    # Get dependent components DS conditioned on causation component
+                    temp = np.zeros(causation_ds.shape)
                     # Loop over each DS
                     for ds in range(1, matrix.shape[1]):
-                        if ds == 1:
-                            temp = np.where(causation_ds==ds-1, matrix[j-1][ds], causation_ds)
-                        else:
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
-                            temp = np.where(temp==ds-1, matrix[j-1][ds], temp)
+                        temp[causation_ds == ds-1] = matrix[j-1][ds]
 
                     # Modify DS if correlated component is conditioned on causation component's DS, otherwise skip
                     damage_state[j][n] = np.maximum(correlated_ds, temp)
@@ -423,7 +407,9 @@ class SLF:
                         repair_cost[item][n] = np.where(damage_state[item][n] == ds, ds, -1)
 
                     else:
+                        # Best fit function
                         best_fit = component_data.iloc[item - 1][f"DS{ds}, best fit"]
+                        # EDP ID where ds is observed
                         idx_list = np.where(damage_state[item][n] == ds)[0]
                         for idx_repair in idx_list:
                             if best_fit == 'normal truncated':
@@ -534,6 +520,8 @@ class SLF:
         for q in percentiles:
             popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc[q], maxfev=10**6)
             losses_fitted[q] = fitting_function(edp_range, *popt)
+            # Truncating at zero to prevent negative values
+            losses_fitted[q][losses_fitted[q] <= 0] = 0.0
             fitting_parameters[q] = {"popt": popt, "pcov": pcov}
 
         # Fitting the mean
@@ -638,14 +626,14 @@ class SLF:
                 fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data)
 
                 # Damage probabilities, placeholder
-                damage_probs = self.get_DS_probs(component_data, fragilities)
+                damage_probs = self.get_DS_probs(fragilities)
 
                 # Perform Monte Carlo simulations for damage state sampling
-                damage_state = self.perform_Monte_Carlo(fragilities, matrix)
+                damage_state = self.perform_Monte_Carlo(fragilities)
 
                 # Populate the damage state matrix for correlated components
                 if self.correlation == "Correlated":
-                    damage_state = self.test_correlated_data(damage_state, matrix, fragilities)
+                    damage_state = self.test_correlated_data(damage_state, matrix)
 
                 # Perform loss assessment
                 loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
