@@ -33,7 +33,6 @@ class SLF:
         Initialization of the Master Generator
         TODO, add option for mutually exclusive damage states
         TODO, include possibility of including quantity uncertainties along with the mean values
-        TODO, add function to calculate the optimal number of realizations to meet a desired confidence level
         :param project_name: str                Name of the project to save in the database
         :param component_data: dict             Component data inventory
         :param correlation_tree: dict           Correlation tree
@@ -89,7 +88,6 @@ class SLF:
                     2. View existing components (e.g., FEMA P-58 PACT or added previously by the user)
                     3. Edit an existing component
                     4. Delete an existing component
-                    5. EDP and EDP bin should be visible in the tools, currently it is not an input argument
         Current version: Direct manipulation within the .csv file, add new entries with empty IDs (the tool with assign
         the IDs automatically) or select ID from the drop down list, which will select the already existing one.
         New created entries will not be saved within the database, and will be deleted if the .csv file is modified.
@@ -272,7 +270,7 @@ class SLF:
         covs_cost = np.zeros((len(component_data), max_ds_selected))
 
         # Deriving fragility functions
-        # TODO, modify 4, make indentation smarter
+        # TODO, modify 4, make index reading smarter
         data = component_data.values[:, 4:]
 
         # Get parameters of the fragility and consequence functions
@@ -353,7 +351,7 @@ class SLF:
                 damage_state[item][n] = damage
         return damage_state
 
-    def test_correlated_data(self, damage_state, matrix):
+    def assign_ds_to_dependent(self, damage_state, matrix):
         """
         Tests if any non-assigned DS exist (i.e. -1) and makes correction if necessary
         :param damage_state: dict               Damage states of each component for each simulation
@@ -385,7 +383,7 @@ class SLF:
 
         return damage_state
 
-    def calculate_loss(self, component_data, damage_state, means_cost, covs_cost):
+    def calculate_costs(self, component_data, damage_state, means_cost, covs_cost):
         """
         Evaluates the damage cost on the individual i-th component at each EDP level for each n-th simulation
         :param component_data: DataFrame                DataFrame containing the component data
@@ -573,7 +571,7 @@ class SLF:
         error = edp_bin * sum(abs(y - yhat) / max(y)) * 100
         return error
 
-    def accuracy(self, y, yhat):
+    def compute_accuracy(self, y, yhat):
         """
         Estimates prediction accuracy
         :param y: ndarray                           Actual values
@@ -633,11 +631,11 @@ class SLF:
 
                 # Populate the damage state matrix for correlated components
                 if self.correlation == "Correlated":
-                    damage_state = self.test_correlated_data(damage_state, matrix)
+                    damage_state = self.assign_ds_to_dependent(damage_state, matrix)
 
                 # Perform loss assessment
                 loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
-                    self.calculate_loss(component_data, damage_state, means_cost, covs_cost)
+                    self.calculate_costs(component_data, damage_state, means_cost, covs_cost)
 
                 # Perform regression
                 losses, losses_fitted, fitting_pars = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
@@ -646,7 +644,7 @@ class SLF:
                 edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
 
                 # Quantifying the error on the mean curve
-                error_median_max = self.accuracy(losses["loss_ratio_curve"].loc['mean'], losses_fitted['mean'])
+                error_median_max = self.compute_accuracy(losses["loss_ratio_curve"].loc['mean'], losses_fitted['mean'])
 
                 # Store outputs into a dictionary for saving as a .pickle file
                 """
