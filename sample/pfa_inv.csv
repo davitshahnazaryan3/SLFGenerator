@@ -1,0 +1,10 @@
+ITEM,ID,EDP,Component,Group,Quantity,Damage States,"DS1, Median Demand","DS2, Median Demand","DS3, Median Demand","DS4, Median Demand","DS5, Median Demand","DS1, Total Dispersion (Beta)","DS2, Total Dispersion (Beta)","DS3, Total Dispersion (Beta)","DS4, Total Dispersion (Beta)","DS5, Total Dispersion (Beta)","DS1, Repair COST","DS2, Repair COST","DS3, Repair COST","DS4, Repair COST","DS5, Repair COST","DS1, COST Dispersion (Beta)","DS2, COST Dispersion (Beta)","DS3, COST Dispersion (Beta)","DS4, COST Dispersion (Beta)","DS5, COST Dispersion (Beta)","DS1, best fit","DS2, best fit","DS3, best fit","DS4, best fit","DS5, best fit"
+1,E100,PFA,NS,1,28,1,0.8,,,,,0.4,,,,,1035,,,,,0.1,,,,,,,,,
+2,E1000,PFA,NS,1,560,3,0.55,1,1.5,,,0.4,0.4,0.4,,,49,69,99,,,0.1,0.1,0.1,,,,,,,
+3,E110,PFA,NS,1,3,1,0.69,,,,,0.4,,,,,5569,,,,,0.1,,,,,,,,,
+4,E200,PFA,NS,1,66,1,1,,,,,0.4,,,,,583,,,,,0.1,,,,,,,,,
+5,E300,PFA,NS,1,1.808,2,0.55,1.1,,,,0.4,0.4,,,,307.38,2302.32,,,,0.1,0.1,,,,,,,,
+6,E400,PFA,NS,1,1.904,2,0.55,1.1,,,,0.4,0.4,,,,307.38,2302.32,,,,0.1,0.1,,,,,,,,
+7,E600,PFA,NS,1,3,1,0.8,,,,,0.4,,,,,297,,,,,0.1,,,,,,,,,
+8,E700,PFA,NS,1,3,1,0.8,,,,,0.4,,,,,2162,,,,,0.1,,,,,,,,,
+9,E800,PFA,NS,1,20,1,0.4,,,,,0.4,,,,,1913,,,,,0.1,,,,,,,,,
