@@ -422,7 +422,7 @@ class SLF:
                 total_repair_cost[item][n] = repair_cost[item][n] * quantities.iloc[item - 1]
             idx += 1
 
-        # Evaluate total loss for the floor segment
+        # Evaluate total loss for the storey segment
         total_loss_storey = {}
         for n in range(self.n_realizations):
             total_loss_storey[n] = np.zeros(len(self.edp_range))
