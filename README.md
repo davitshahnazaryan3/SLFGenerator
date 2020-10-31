@@ -4,6 +4,9 @@ The tool allows the automated production of SLFs based on input fragility, conse
 
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 
+Running: Run slf_gui.py.
+
+
 [SLF estimation procedure](https://www.researchgate.net/publication/265411359_Building-Specific_Loss_Estimation_Methods_Tools_for_Simplified_Performance-Based_Earthquake_Engineering)
 
 [FEMA P-58 for fragilities](https://femap58.atcouncil.org/reports)
