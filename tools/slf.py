@@ -1,7 +1,7 @@
 """
 Storey-loss-function (SLF) Generator adopted from the work of Sebastiano Zampieri by Davit Shahnazaryan
 
-The tool allows the automatic production of EDP-DV SLFs based on input fragility, consequence and quantity data.
+The tool allows the automatic production of SLFs based on input fragility, consequence and quantity data.
 
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 
@@ -27,7 +27,7 @@ warnings.filterwarnings('ignore')
 
 
 class SLF:
-    def __init__(self, project_name, component_data, correlation_tree=None, edp_bin=None, correlation="Correlated",
+    def __init__(self, project_name, component_data, correlation_tree=None, edp_bins=None, correlation="Correlated",
                  regression="Weibull", n_realizations=20, conversion=1.0, replCost=0.0, do_grouping=True):
         """
         Initialization of the Master Generator
@@ -36,7 +36,7 @@ class SLF:
         :param project_name: str                Name of the project to save in the database
         :param component_data: dict             Component data inventory
         :param correlation_tree: dict           Correlation tree
-        :param edp_bin: float                   EDP sampling unit, % for IDR, g for PFA (non-negative)
+        :param edp_bins: float                  EDP sampling unit, % for PSD, g for PFA (non-negative)
         :param correlation: str                 Whether the elements are "Independent" or "Correlated"
         :param regression: str                  Whether the regression function is based on "Weibull" or "Papadopoulos"
         :param n_realizations: int              Number of realizations
@@ -46,14 +46,14 @@ class SLF:
         :param replCost: float                  Replacement cost of the building (used when normalizing the SLFs)
         :param do_grouping: bool                Whether to do performance grouping or use the entire component database
         """
-        if edp_bin is None:
-            edp_bin = [0.1, 0.05]
+        if edp_bins is None:
+            edp_bins = [0.1, 0.05]
         self.dir = Path.cwd()
         self.database_dir = self.dir / "Database"
         self.project_name = project_name
         self.component_data = component_data
         self.correlation_tree = correlation_tree
-        self.edp_bin = edp_bin
+        self.edp_bins = edp_bins
         self.correlation = correlation
         self.regression = regression
         self.n_realizations = n_realizations
@@ -61,22 +61,23 @@ class SLF:
         self.replCost = replCost
         self.do_grouping = do_grouping
         self.edp_range = None
+        self.edp_bin = None
 
     def get_edp_range(self, edp):
         """
         Identifies the EDP range based on edp type and input edp bin
-        :param edp: str                         EDP type (IDR or PFA)
+        :param edp: str                         EDP type (PSD or PFA)
         :return: None
         """
         # EDP range
         if edp == "IDR" or edp == "PSD":
             # stop calculation at 10% drift
-            edp_bin = self.edp_bin[0] / 100.
-            self.edp_range = np.arange(0, 0.2 + edp_bin, edp_bin)
+            self.edp_bin = self.edp_bins[0] / 100.
+            self.edp_range = np.arange(0, 0.2 + self.edp_bin, self.edp_bin)
         elif edp == "PFA":
             # stop calculation at 2.5g of acceleration
-            edp_bin = self.edp_bin[1]
-            self.edp_range = np.arange(0, 10.0 + edp_bin, edp_bin)
+            self.edp_bin = self.edp_bins[1]
+            self.edp_range = np.arange(0, 10.0 + self.edp_bin, self.edp_bin)
         else:
             raise ValueError("[EXCEPTION] Wrong EDP type, must be 'IDR'/'PSD' or 'PFA'")
 
@@ -152,11 +153,11 @@ class SLF:
 
                 # EDP and Component assigned
                 else:
-                    idr_s = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "S")]
-                    idr_ns = component_data[(component_data["EDP"] == "IDR") & (component_data["Component"] == "NS")]
+                    psd_s = component_data[(component_data["EDP"] == "PSD") & (component_data["Component"] == "S")]
+                    psd_ns = component_data[(component_data["EDP"] == "PSD") & (component_data["Component"] == "NS")]
                     pfa_ns = component_data[(component_data["EDP"] == "PFA") & (component_data["Component"] == "NS")]
 
-                    component_groups = {"IDR S": idr_s, "IDR NS": idr_ns, "PFA NS": pfa_ns}
+                    component_groups = {"PSD S": psd_s, "PSD NS": psd_ns, "PFA NS": pfa_ns}
 
             # Group is assigned
             else:
@@ -297,29 +298,6 @@ class SLF:
 
         return fragilities, means_cost, covs_cost
 
-    def get_DS_probs(self, fragilities):
-        """
-        Evaluates probabilities of having each damage state for every EDP
-        :param fragilities: dict                Fragility functions of all components at all DSs
-        :return: dict                           Probabilities of being in a given DS
-        """
-        if self.correlation == "Independent":
-            # Evaluating probability of having each damage state for every EDP
-            # Items
-            damage_probs = {}
-            for item in fragilities["ITEMs"]:
-                damage_probs[item] = {}
-                # DS
-                for ds in range(6):
-                    y = fragilities["ITEMs"][item]
-                    if ds == 0:
-                        damage_probs[item][f"DS{ds}"] = 1 - y[f"DS{ds + 1}"]
-                    elif ds == 5:
-                        damage_probs[item][f"DS{ds}"] = y[f"DS{ds}"]
-                    else:
-                        damage_probs[item][f"DS{ds}"] = y[f"DS{ds}"] - y[f"DS{ds + 1}"]
-            return damage_probs
-
     def perform_Monte_Carlo(self, fragilities):
         """
         Performs Monte Carlo simulations and simulates DS for each EDP step
@@ -437,16 +415,11 @@ class SLF:
         # Evaluate the total damage cost multiplying the individual cost by each element quantity
         quantities = component_data["Quantity"]     # Component quantities
         total_repair_cost = {}                      # Total repair costs
-        replacement_cost = {}                       # Replacement costs
-        loss_ratios = {}                            # Loss ratios
         idx = 0
         for item in damage_state.keys():
             total_repair_cost[item] = {}
-            replacement_cost[item] = max(means_cost[idx])
-            loss_ratios[item] = {}
             for n in range(self.n_realizations):
                 total_repair_cost[item][n] = repair_cost[item][n] * quantities.iloc[item - 1]
-                loss_ratios[item][n] = repair_cost[item][n] / replacement_cost[item]
             idx += 1
 
         # Evaluate total loss for the floor segment
@@ -456,11 +429,9 @@ class SLF:
             for item in damage_state.keys():
                 total_loss_storey[n] += total_repair_cost[item][n]
 
-        # Evaluate total loss ratio for the floor segment
-        replacement_cost = np.array([replacement_cost[i] for i in replacement_cost])
         # Calculate if replCost was set to 0, otherwise use the provided value
         if self.replCost == 0.0 or self.replCost is None:
-            total_replacement_cost = sum(np.array(quantities) * replacement_cost)
+            raise ValueError("[EXCEPTION] Replacement cost should be a non-negative non-zero value.")
         else:
             total_replacement_cost = self.replCost
 
@@ -468,16 +439,16 @@ class SLF:
         for n in range(self.n_realizations):
             total_loss_storey_ratio[n] = total_loss_storey[n] / total_replacement_cost
 
-        return loss_ratios, total_loss_storey, total_loss_storey_ratio, total_replacement_cost, repair_cost
+        return total_loss_storey, total_loss_storey_ratio, repair_cost
 
     def perform_regression(self, total_loss_storey, total_loss_ratio, edp, percentiles=None):
         """
-        Performs regression and outputs final fitted results for the EDP-DV functions
+        Performs regression and outputs final fitted results for the SLFs
         :param total_loss_storey: dict                      Total loss for the floor segment
         :param total_loss_ratio: dict                       Total loss ratio for the floor segment
         :param edp: str                                     EDP
         :param percentiles: list                            Percentiles to estimate
-        :return: dict                                       Fitted EDP-DV functions
+        :return: dict                                       Fitted SLFs
         """
         if percentiles is None:
             percentiles = [0.16, 0.50, 0.84]
@@ -500,7 +471,7 @@ class SLF:
         else:
             edp_range = self.edp_range
 
-        ''' Fitting the curve, EDP-DV functions '''
+        ''' Fitting the curve, SLFs '''
         if self.regression == "Weibull":
             def fitting_function(x, a, b, c):
                 return a * (1 - np.exp(-(x / b) ** c))
@@ -512,79 +483,41 @@ class SLF:
         else:
             raise ValueError("[EXCEPTION] Wrong type of regression function")
 
-        # Fitted loss functions at specified quantiles
+        # Fitted loss functions at specified quantiles normalised by the Replacement Cost
         losses_fitted = {}
         fitting_parameters = {}
         for q in percentiles:
-            popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc[q], maxfev=10**6)
-            losses_fitted[q] = fitting_function(edp_range, *popt)
+            maxVal = max(losses["loss_ratio_curve"].loc[q])
+            popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc[q]/maxVal, maxfev=10**6)
+            losses_fitted[q] = fitting_function(edp_range, *popt)*maxVal
             # Truncating at zero to prevent negative values
             losses_fitted[q][losses_fitted[q] <= 0] = 0.0
             fitting_parameters[q] = {"popt": popt, "pcov": pcov}
 
         # Fitting the mean
-        popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc['mean'], maxfev=10**6)
-        losses_fitted['mean'] = fitting_function(edp_range, *popt)
+        maxVal = max(losses["loss_ratio_curve"].loc['mean'])
+        popt, pcov = curve_fit(fitting_function, edp_range, losses["loss_ratio_curve"].loc['mean']/maxVal, maxfev=10**6)
+        losses_fitted['mean'] = fitting_function(edp_range, *popt)*maxVal
 
         fitting_parameters['mean'] = {"popt": popt, "pcov": pcov}
 
         return losses, losses_fitted, fitting_parameters
-
-    def get_in_euros(self, losses, total_replacement_cost):
-        """
-        Transforms losses to Euros
-        :param losses: dict                         Fitted EDP-DV functions
-        :param total_replacement_cost: float        Total replacement cost
-        :return: dict                               Fitted EDP-DV functions in Euros
-        """
-        edp_dv = losses.copy()
-        for key in losses.keys():
-            edp_dv[key] = losses[key] * total_replacement_cost
-        return edp_dv
-
-    def get_slfs(self, outputs):
-        """
-        Normalizes EDP-DV functions with respect to the total story replacement cost
-        :param outputs: dict                        Outputs
-        :return: DataFrame                          Normalized mean SLFs of all performance groups
-        """
-
-        total_story_cost_actual = sum([outputs[key]['total_replacement_cost'] for key in outputs])
-        total_story_cost = sum(outputs[key]['edp_dv_euro']['mean'][-1] for key in outputs)
-
-        print(f"[WARNING] Actual total story cost is {total_story_cost_actual:.0f} with respect to "
-              f"{total_story_cost:.0f} used for normalization")
-
-        slfs = {}
-        for key in outputs:
-            slfs[key] = outputs[key]['edp_dv_euro']['mean'] / total_story_cost
-
-        return slfs
-
-    def cum_error(self, y, yhat, edp_bin):
-        """
-        Estimates prediction accuracy
-        :param y: ndarray                           Actual values
-        :param yhat: ndarray                        Estimations
-        :return: float                              Maximum error in %
-        """
-        error = edp_bin * sum(abs(y - yhat) / max(y)) * 100
-        return error
 
     def compute_accuracy(self, y, yhat):
         """
         Estimates prediction accuracy
         :param y: ndarray                           Actual values
         :param yhat: ndarray                        Estimations
-        :return: float                              Maximum error in %
+        :return: float                              Maximum error in %, Cumulative error in %
         """
         error_max = max(abs(y - yhat)/max(y)) * 100
-        return error_max
+        error_cum = self.edp_bin * sum(abs(y - yhat) / max(y)) * 100
+        return error_max, error_cum
 
     def master(self):
         """
         Runs the whole framework
-        :return: dict                               Fitted EDP-DV functions
+        :return: dict                               Fitted SLFs
         """
         # Read component data
         component_data = self.get_component_data()
@@ -603,6 +536,7 @@ class SLF:
         cache = {}
         # For storing into a .xlsx file
         outputs = {}
+
         for group in component_groups:
 
             if not component_groups[group].empty:
@@ -623,9 +557,6 @@ class SLF:
                 # Obtain component fragility and consequence functions
                 fragilities, means_cost, covs_cost = self.derive_fragility_functions(component_data)
 
-                # Damage probabilities, placeholder
-                damage_probs = self.get_DS_probs(fragilities)
-
                 # Perform Monte Carlo simulations for damage state sampling
                 damage_state = self.perform_Monte_Carlo(fragilities)
 
@@ -634,54 +565,33 @@ class SLF:
                     damage_state = self.assign_ds_to_dependent(damage_state, matrix)
 
                 # Perform loss assessment
-                loss_ratios, total_loss_storey, total_loss_ratio, total_replacement_cost, repair_cost = \
+                total_loss_storey, total_loss_storey_ratio, repair_cost = \
                     self.calculate_costs(component_data, damage_state, means_cost, covs_cost)
 
                 # Perform regression
-                losses, losses_fitted, fitting_pars = self.perform_regression(total_loss_storey, total_loss_ratio, edp)
-
-                # Transform the EDP-DV functions into Euros
-                edp_dv_functions = self.get_in_euros(losses_fitted, total_replacement_cost)
+                losses, slfs, fitting_pars = self.perform_regression(total_loss_storey, total_loss_storey_ratio, edp)
 
                 # Quantifying the error on the mean curve
-                error_median_max = self.compute_accuracy(losses["loss_ratio_curve"].loc['mean'], losses_fitted['mean'])
+                error_max, error_cum = self.compute_accuracy(losses["loss_ratio_curve"].loc['mean'], slfs['mean'])
 
                 # Store outputs into a dictionary for saving as a .pickle file
-                """
-                component:                  Component inventory
-                fragilities:                Component fragility functions
-                edp_dv_euro:                Fitted EDP-DV functions in terms of EDP range vs Euro/USD etc.
-                losses:                     Simulated fractile EDP-DV functions in terms of EDP range vs Euro/USD etc.
-                edp_dv_fitted:              Normalized fitted functions 
-                total_loss_storey:          Sampled story losses in Euros
-                total_replacement_cost:     Total cost of the story
-                SLFs:                       Normalized EDP-DV functions
-                fit_pars:                   Regression parameters
-                Accuracy:                   Accuracy of the regression function, e.g. error, accuracy
-                """
                 cache[f"{group}"] = {'component':                   component_data,
                                      'fragilities':                 fragilities,
-                                     'edp_dv_euro':                 edp_dv_functions,
-                                     'losses':                      losses,
-                                     # 'edp_dv_fitted':               losses_fitted,
                                      'total_loss_storey':           total_loss_storey,
-                                     'total_replacement_cost':      total_replacement_cost,
-                                     # 'damage_states':              damage_state,
+                                     'total_loss_storey_ratio':     total_loss_storey_ratio,
+                                     'repair_cost':                 repair_cost,
+                                     'damage_states':               damage_state,
+                                     'losses':                      losses,
+                                     'slfs':                        slfs,
                                      'fit_pars':                    fitting_pars,
-                                     'accuracy':                    error_median_max,
+                                     'accuracy':                    [error_max, error_cum],
                                      "regression":                  self.regression}
 
                 outputs[f"{group}"] = {'fit_pars':                  fitting_pars,
-                                       'accuracy':                  error_median_max,
-                                       'edp_dv':                    edp_dv_functions}
+                                       'accuracy':                  [error_max, error_cum],
+                                       'slfs':                      slfs}
 
                 cnt += 1
-
-        # Get the normalized SLFs
-        slfs = self.get_slfs(cache)
-
-        cache['SLFs'] = slfs
-        outputs['SLFs'] = slfs
 
         # Completion
         print("[SUCCESS] Successful completion!")

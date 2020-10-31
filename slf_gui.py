@@ -5,6 +5,7 @@ Runs the SLF generator
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
+from PIL import Image, ImageTk
 # Path libraries
 from pathlib import Path
 # Data manipulation libraries
@@ -26,7 +27,7 @@ class Root(tk.Tk):
         self.MODES = None
         self.correlation_type_variable = None
         self.regression_variable = None
-        self.idr_bin_entry = None
+        self.psd_bin_entry = None
         self.pfa_bin_entry = None
         self.precision = None
         self.conf_level = None
@@ -42,6 +43,8 @@ class Root(tk.Tk):
         self.ax = None
         self.fig = None
         self.project_name = None
+        self.imgTk = None
+        self.img_label = None
 
         # Initial directory
         self.DIR = Path.cwd()
@@ -65,7 +68,7 @@ class Root(tk.Tk):
         self.base.grid(row=0, column=0, padx=20, pady=20)
 
         # Title of the toolbox
-        title_label = tk.Label(self, text="EDP - DV Function\n Generator", font=f"{self.default_font} 12 bold")
+        title_label = tk.Label(self, text="Storey Loss Function\n Generator", font=f"{self.default_font} 12 bold")
         title_label.grid(row=0, column=0)
 
         # Initial window options for initiating the project or shutting down the software
@@ -115,7 +118,7 @@ class Root(tk.Tk):
         :param default_value: float                 Default value for the variable
         :return: tkinter entry
         """
-        entry = tk.Entry(self.frame, width=10)
+        entry = tk.Entry(self.frame, width=6)
         entry.grid(row=cnt, column=1)
         entry.insert(0, f"{default_value}")
         name_label = tk.Label(self.frame, text=text)
@@ -189,7 +192,7 @@ class Root(tk.Tk):
         :return: None
         """
         tk.Button(self.frame, text='Close', command=self.main_SLF).grid(row=30, column=0, columnspan=2, sticky=tk.W,
-                                                                        pady=(10, 0), padx=(20, 0), ipadx=86)
+                                                                        pady=(10, 0), padx=(20, 0), ipadx=87)
 
     def create_radio_button(self, cnt, variable):
         """
@@ -200,7 +203,7 @@ class Root(tk.Tk):
         """
         for text, mode in self.MODES:
             radio_button = tk.Radiobutton(self.frame, text=text, variable=variable, value=mode)
-            radio_button.grid(row=cnt, column=0, sticky=tk.W, padx=10)
+            radio_button.grid(row=cnt, column=0, sticky=tk.W, padx=10, columnspan=2)
             cnt += 1
         return cnt
 
@@ -287,6 +290,7 @@ class Root(tk.Tk):
         """
         # Create root
         super(Root, self).__init__()
+
         # Default font style
         self.default_font = "Helvetica"
         self.option_add("*Font", self.default_font)
@@ -299,21 +303,28 @@ class Root(tk.Tk):
         self.init_menu()
 
         # Create the main canvas for outputting
-        self.canvas = tk.Frame(self, width=800, height=800)
-        self.canvas.grid(row=0, column=1)
+        self.canvas = tk.Frame(self, width=800, height=900)
+        self.canvas.grid(row=0, column=1, sticky="n")
+
+        # Logo of IUSS Pavia
+        image = Image.open(self.DIR / "tools/iussLogo.png")
+        self.imgTk = ImageTk.PhotoImage(image.resize((100, 100)))
+        self.img_label = tk.Canvas(self.canvas, width=100, height=100)
+        self.img_label.grid(row=0, column=3, sticky="ne")
+        self.img_label.create_image(50, 50, image=self.imgTk)
 
         # Create the input frame
         self.frame = tk.Frame(self)
         self.frame.grid(row=0, column=0, sticky="n")
 
         # Show Input Title
-        title_label = tk.Label(self.frame, text="EDP - DV Function Inputs", fg=self.color_grid[0],
+        title_label = tk.Label(self.frame, text="Storey Loss Function \nGenerator", fg=self.color_grid[0],
                                font=f"{self.default_font} 14 bold")
         title_label.grid(row=0, column=0, columnspan=2, sticky="nw")
 
         # Project name
         user_input_project_name = self.project_name
-        project_label = tk.Label(self.frame, text=user_input_project_name, font=f"{self.default_font} 12 bold")
+        project_label = tk.Label(self.frame, text=f"SLF Name: {user_input_project_name}", font=f"{self.default_font} 12 bold")
         project_label.grid(row=1, column=0, columnspan=2, pady=10, sticky=tk.W)
 
         # Initiate a dictionary to store all necessary information for the SLF generator
@@ -339,20 +350,20 @@ class Root(tk.Tk):
         row_id = self.create_radio_button(5, self.correlation_type_variable)
 
         # Select regression function
-        regression_label = tk.Label(self.frame, text="Select Regression function", font=f"{self.default_font} 12 bold")
+        regression_label = tk.Label(self.frame, text="Select Regression Function", font=f"{self.default_font} 12 bold")
         regression_label.grid(row=row_id+1, column=0, columnspan=2, sticky=tk.W)
         self.MODES = [("Weibull", "Weibull"),
-                      ("Papadopoulos", "Papadopoulos")]
+                      ("Papadopoulos et al. (2019)", "Papadopoulos")]
         self.regression_variable = tk.StringVar()
         self.regression_variable.set("Weibull")
         row_id = self.create_radio_button(row_id+2, self.regression_variable)
 
         # Define EDP steps
-        edp_label = tk.Label(self.frame, text="Select EDP Bin", font=f"{self.default_font} 12 bold")
+        edp_label = tk.Label(self.frame, text="Select EDP Bin Width", font=f"{self.default_font} 12 bold")
         edp_label.grid(row=row_id, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
 
         # Entry for IDR bin in %
-        self.idr_bin_entry = self.create_entry(row_id + 1, "IDR bin", "%", 0.1)
+        self.psd_bin_entry = self.create_entry(row_id + 1, "PSD bin", "%", 0.1)
 
         # Entry for PFA bin in g
         self.pfa_bin_entry = self.create_entry(row_id + 2, "PFA bin", "g", 0.05)
@@ -370,7 +381,7 @@ class Root(tk.Tk):
         # Conversion factor
         replCost_label = tk.Label(self.frame, text="Replacement Cost", font=f"{self.default_font} 12 bold")
         replCost_label.grid(row=row_id + 7, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
-        self.replCost = self.create_entry(row_id + 8, "Replacement Cost", "", 0.0)
+        self.replCost = self.create_entry(row_id + 8, "Replacement Cost", "", 1.0)
 
         # Radio button for performance grouping
         grouping_label = tk.Label(self.frame, text="Apply Performance Grouping", font=f"{self.default_font} 12 bold")
@@ -386,17 +397,17 @@ class Root(tk.Tk):
                                                                      pady=(10, 0), padx=(20, 0), ipadx=94)
 
         # Store Outputs button
-        tk.Button(self.frame, text='Store Outputs into a .pickle', command=self.store_results).\
-            grid(row=28, column=0, columnspan=2, sticky=tk.W, pady=(10, 0), padx=(20, 0), ipadx=14)
+        tk.Button(self.frame, text='Export to .pickle', command=self.export_cache_to_pickle).\
+            grid(row=28, column=0, columnspan=2, sticky=tk.W, pady=(10, 0), padx=(20, 0), ipadx=52)
 
         # Store Outputs button
-        tk.Button(self.frame, text='Store Outputs into a .xlsx', command=self.store_into_xlsx).\
-            grid(row=29, column=0, columnspan=2, sticky=tk.W, pady=(10, 0), padx=(20, 0), ipadx=22)
+        tk.Button(self.frame, text='Export to .xlsx', command=self.export_to_xlsx).\
+            grid(row=29, column=0, columnspan=2, sticky=tk.W, pady=(10, 0), padx=(20, 0), ipadx=60)
 
         # Shut down the toolbox
         self.close_program()
 
-    def store_results(self):
+    def export_cache_to_pickle(self):
         """
         Stores outputs and inputs into separate pickle files
         :return: None
@@ -410,7 +421,7 @@ class Root(tk.Tk):
         else:
             pickle.dump(self.cache, f)
 
-    def store_into_xlsx(self):
+    def export_to_xlsx(self):
         """
         Stores outputs into a .xlsx format
         :return: None
@@ -430,30 +441,15 @@ class Root(tk.Tk):
 
             # Start process
             for key in self.outputs.keys():
-                # Write EDP-DV functions, fitting parameters of the performed regression
-                if key != "SLFs":
-                    for k in self.outputs[key]:
-                        if k != "accuracy":
-                            # Transform into a DataFrame
-                            df = pd.DataFrame.from_dict(self.outputs[key][k])
-                            # Assign a sheet name
-                            sheet_name = f"{key}_{k}"
-                            # Write into a worksheet
-                            df.to_excel(writer, sheet_name=sheet_name)
-
-                # Store the EDP-DVs normalized by the total story loss
-                else:
-                    # Initialize startcol
-                    cnt = 0
-                    for k in self.outputs[key]:
+                # Write SLFs, fitting parameters of the performed regression
+                for k in self.outputs[key]:
+                    if k != "accuracy":
                         # Transform into a DataFrame
-                        df = pd.DataFrame(self.outputs[key][k], columns=[k])
+                        df = pd.DataFrame.from_dict(self.outputs[key][k])
                         # Assign a sheet name
-                        sheet_name = "Mean EDP-DV Normalized"
+                        sheet_name = f"{key}_{k}"
                         # Write into a worksheet
-                        df.to_excel(writer, sheet_name=sheet_name, startcol=cnt)
-                        # Increment startcol
-                        cnt += 3
+                        df.to_excel(writer, sheet_name=sheet_name)
 
             # Close the Pandas Excel writer and output the Excel file
             writer.save()
@@ -479,7 +475,7 @@ class Root(tk.Tk):
             # Performance grouping if specified
             do_grouping = True if self.perform_grouping.get() == 1 else False
             # EDP bin definition
-            edp_bin = [float(self.idr_bin_entry.get()), float(self.pfa_bin_entry.get())]
+            edp_bin = [float(self.psd_bin_entry.get()), float(self.pfa_bin_entry.get())]
             # Number of realizations for Monte Carlo analysis
             n_realizations = int(self.n_realizations.get())
             # Conversion factor for costs, costs_provided * conversion_factor
@@ -523,7 +519,7 @@ class Root(tk.Tk):
                                       self.cache[edp]["component"].loc[item]["Component"]
 
         # DropDown list options
-        options = ["Fragility", "EDP-DV"]
+        options = ["Fragility", "SLF"]
 
         # Show plots
         def show_plot(*args):
@@ -531,8 +527,8 @@ class Root(tk.Tk):
             # Update button
             button_back = tk.Button(self.canvas, text="<<", command=lambda: back(-1))
             button_forward = tk.Button(self.canvas, text=">>", command=lambda: forward(1))
-            button_back.grid(row=1, column=0)
-            button_forward.grid(row=1, column=3)
+            button_back.grid(row=2, column=0)
+            button_forward.grid(row=2, column=3)
 
             # Visualize first default graph
             if curve.get() == "Fragility":
@@ -542,7 +538,7 @@ class Root(tk.Tk):
                     plotShow.get_tk_widget().destroy()
 
                 # Trace curve type
-                if trace_curve == "EDP-DV":
+                if trace_curve == "SLF":
                     item_default = 1
                 trace_curve = "Fragility"
 
@@ -561,32 +557,40 @@ class Root(tk.Tk):
                 if self.toolbarFrame is not None:
                     self.toolbarFrame.grid_forget()
                 plotShow = FigureCanvasTkAgg(self.fig, self.canvas)
-                plotShow.get_tk_widget().grid(row=2, column=0, columnspan=4, sticky=tk.W)
+                plotShow.get_tk_widget().grid(row=3, column=0, columnspan=4, sticky=tk.W)
                 plotShow.draw()
 
                 self.toolbarFrame = tk.Frame(master=self.canvas)
-                self.toolbarFrame.grid(row=3, column=0, columnspan=4, sticky=tk.W)
+                self.toolbarFrame.grid(row=4, column=0, columnspan=4, sticky=tk.W)
                 toolbar = NavigationToolbar2Tk(plotShow, self.toolbarFrame)
 
                 # Name of selected plot type and figure number
                 status = tk.Label(self.canvas, text=f"EDP: {edp_default}; "
                                                     f"Item {item_default} of {len(fragility_plots[edp_default])}",
                                   bd=1, relief=tk.SUNKEN, anchor=tk.E)
-                status.grid(row=4, column=0, columnspan=4, sticky=tk.W + tk.E)
+                status.grid(row=5, column=0, columnspan=4, sticky=tk.W + tk.E)
+
+                # Literature
+                literature = tk.Label(self.canvas,
+                                      text="Please refer to: Shahnazaryan D, O'Reilly GJ, Monteiro R, (2020). "
+                                           "Storey Loss Functions for Seismic Design and \nAssessment: Development"
+                                           " of Tools and Application (Under Review)", bd=1,
+                                      relief=tk.SUNKEN, anchor=tk.E)
+                literature.grid(row=6, column=0, columnspan=4, sticky=tk.W + tk.E)
 
                 # Forward button
                 if item_default == len(fragility_plots[edp_default]):
                     button_forward = tk.Button(self.canvas, text=">>", state=tk.DISABLED)
-                    button_forward.grid(row=1, column=3)
+                    button_forward.grid(row=2, column=3)
 
                 # Back button
                 if item_default == 1:
                     button_back = tk.Button(self.canvas, text="<<", state=tk.DISABLED)
-                    button_back.grid(row=1, column=0)
+                    button_back.grid(row=2, column=0)
 
                 edp_default_old = edp_default
 
-            elif curve.get() == "EDP-DV":
+            elif curve.get() == "SLF":
 
                 # Remove past figure if it exists
                 if plotShow is not None:
@@ -594,7 +598,7 @@ class Root(tk.Tk):
 
                 if trace_curve == "Fragility":
                     item_default = 1
-                trace_curve = "EDP-DV"
+                trace_curve = "SLF"
 
                 # Get group case for visualization
                 # Assign the default case if unassigned
@@ -607,31 +611,38 @@ class Root(tk.Tk):
                 if self.toolbarFrame is not None:
                     self.toolbarFrame.grid_forget()
                 plotShow = FigureCanvasTkAgg(self.fig, self.canvas)
-                plotShow.get_tk_widget().grid(row=2, column=0, columnspan=4, sticky=tk.W)
+                plotShow.get_tk_widget().grid(row=3, column=0, columnspan=4, sticky=tk.W)
                 plotShow.draw()
 
                 self.toolbarFrame = tk.Frame(master=self.canvas)
-                self.toolbarFrame.grid(row=3, column=0, columnspan=4, sticky=tk.W)
+                self.toolbarFrame.grid(row=4, column=0, columnspan=4, sticky=tk.W)
                 toolbar = NavigationToolbar2Tk(plotShow, self.toolbarFrame)
 
                 status = tk.Label(self.canvas, text=f"EDP Performance group: {edp_default}", bd=1,
                                   relief=tk.SUNKEN, anchor=tk.E)
-                status.grid(row=4, column=0, columnspan=4, sticky=tk.W + tk.E)
+                status.grid(row=5, column=0, columnspan=4, sticky=tk.W + tk.E)
+
+                # Literature
+                literature = tk.Label(self.canvas, text="Please refer to: Shahnazaryan D, O'Reilly GJ, Monteiro R, (2020). "
+                                                        "Storey Loss Functions for Seismic Design and \nAssessment: Development"
+                                                        " of Tools and Application (Under Review)", bd=1,
+                                      relief=tk.SUNKEN, anchor=tk.E)
+                literature.grid(row=6, column=0, columnspan=4, sticky=tk.W + tk.E)
 
                 # Make back and forward buttons disabled
                 button_forward = tk.Button(self.canvas, text=">>", state=tk.DISABLED)
-                button_forward.grid(row=1, column=3)
+                button_forward.grid(row=2, column=3)
 
                 button_back = tk.Button(self.canvas, text="<<", state=tk.DISABLED)
-                button_back.grid(row=1, column=0)
+                button_back.grid(row=2, column=0)
 
         # Plotting option
         label = tk.Label(self.canvas, text="Select Plotting Option")
-        label.grid(row=0, column=1, sticky=tk.N)
+        label.grid(row=1, column=1, sticky=tk.N)
 
         # Group option
         label = tk.Label(self.canvas, text="Select Group")
-        label.grid(row=0, column=2, sticky=tk.N)
+        label.grid(row=1, column=2, sticky=tk.N)
 
         # Default EDP and item
         global item_default, trace_curve, plotShow, edp_default_old
@@ -657,32 +668,39 @@ class Root(tk.Tk):
         # EDP vs DV plots for each EDP type
         edp_dv_plot = {}
         for edp in edps:
-            edp_dv_plot[edp] = viz.edp_dv_plots(edp)
+            edp_dv_plot[edp] = viz.slf_plots(edp)
 
         # Tracing the drop down selection of plot type
         curve = tk.StringVar(self.canvas)
-        trace_curve = "EDP-DV"
+        trace_curve = "SLF"
         curve.trace('w', show_plot)
         curve.set(options[1])
 
         # Tracing the drop down selection of group for plotting
         curve_group = tk.StringVar(self.canvas)
-        trace_curve = "EDP-DV"
+        trace_curve = "SLF"
         curve_group.trace('w', show_plot)
         curve_group.set(edps[0])
 
         # DropDown menu for selecting the type of the figure
         dropdown = tk.OptionMenu(self.canvas, curve, *options)
-        dropdown.grid(row=1, column=1, sticky=tk.N)
+        dropdown.grid(row=2, column=1, sticky=tk.N)
 
         # DropDown menu for selecting the group type
         dropdown_group = tk.OptionMenu(self.canvas, curve_group, *edps)
-        dropdown_group.grid(row=1, column=2, sticky=tk.N)
+        dropdown_group.grid(row=2, column=2, sticky=tk.N)
 
         # Tracing ID of the plot
         status = tk.Label(self.canvas, text=f"EDP Performance group: {edp_default}", bd=1, relief=tk.SUNKEN,
                           anchor=tk.E)
-        status.grid(row=4, column=0, columnspan=4, sticky=tk.W+tk.E)
+        status.grid(row=5, column=0, columnspan=4, sticky=tk.W+tk.E)
+
+        # Literature
+        literature = tk.Label(self.canvas, text="Please refer to: Shahnazaryan D, O'Reilly GJ, Monteiro R, (2020). "
+                                                "Storey Loss Functions for Seismic Design and \nAssessment: Development"
+                                                " of Tools and Application (Under Review)", bd=1,
+                              relief=tk.SUNKEN, anchor=tk.E)
+        literature.grid(row=6, column=0, columnspan=4, sticky=tk.W + tk.E)
 
         # Back and Forward buttons
         def back(change_by):
@@ -698,15 +716,15 @@ class Root(tk.Tk):
         # Creating the back and forward button widgets
         button_back = tk.Button(self.canvas, text="<<", command=lambda: back(-1), state=tk.DISABLED)
         button_forward = tk.Button(self.canvas, text=">>", command=lambda: forward(1), state=tk.DISABLED)
-        button_back.grid(row=1, column=0)
-        button_forward.grid(row=1, column=3)
+        button_back.grid(row=2, column=0)
+        button_forward.grid(row=2, column=3)
 
 
 class VIZ:
     def __init__(self, data):
         """
         Initializing visualizations
-        :param data: dict                           Includes all SLF outputs
+        :param data: dict                           Includes all SLF outputs (cache)
         """
         # Color palettes for easy access
         self.color_grid = ['#840d81', '#6c4ba6', '#407bc1', '#18b5d8', '#01e9f5',
@@ -728,6 +746,7 @@ class VIZ:
         ax = fig.add_subplot(111)
         component = self.data[edp]["fragilities"]["ITEMs"][item]
 
+        # Fragility parameters, mean and standard deviation
         frag_pars = self.data[edp]["component"].iloc[item-1]
         cnt = 0
         for key in component.keys():
@@ -740,13 +759,13 @@ class VIZ:
                 ax.plot(edp_range, component[key], label=label)
             cnt += 1
 
-        # Labeling
+        # Labeling, currently supports PSD and PFA only
         edp_type = self.data[edp]["component"]["EDP"].iloc[0]
-        if edp_type in ["IDR", "IDR NS", "IDR S"]:
-            xlabel = edp_type[0:3]
+        if edp_type in ["IDR", "IDR NS", "IDR S", "PSD", "PSD NS", "PSD S"]:
+            xlabel = r"Peak Storey Drift (PSD), $\theta$"
             xlim = [0, 0.1]
         else:
-            xlabel = edp_type[0:3] + " [g]"
+            xlabel = r"Peak Floor Acceleration (PFA), $a$ [g]"
             xlim = [0, 4.0]
         ylim = [0, 1]
 
@@ -761,7 +780,7 @@ class VIZ:
 
         return fig, ax
 
-    def edp_dv_plots(self, edp, n_to_plot=50):
+    def slf_plots(self, edp, n_to_plot=50):
         """
         Plots EDP DV functions in terms of provided currency
         :param edp: str                         EDP type
@@ -776,37 +795,42 @@ class VIZ:
 
         # Create labels for the type of regression function selected
         fit_pars = self.data[edp]["fit_pars"]["mean"]["popt"]
-        total_replacement_cost = self.data[edp]["total_replacement_cost"]
+
+        # Get regression type
         regression = self.data[edp]["regression"]
         if regression == "Weibull":
-            regressionLabel = r"$y=MaxCost\alpha\left[1-exp\left(-\left(\frac{x}{\beta}\right)^\gamma\right)\right]$"
-            fitParLabel = r"$MaxCost=%.0f, \alpha=%.2f, \beta=%.2f, \gamma=%.2f$" \
-                          % (total_replacement_cost, fit_pars[0], fit_pars[1], fit_pars[2])
-            errorLabel = r"$error_{max}=%.0f$" % (self.data[edp]["accuracy"]) + "%"
-            regressionLabel = regressionLabel + "\n" + fitParLabel + "\n" + errorLabel
+            regressionLabel = r"$L=\alpha\left[1-exp\left(-\left(\frac{EDP}{\beta}\right)^\gamma\right)\right]$"
+            fitParLabel = r"$\alpha=%.2f, \beta=%.2f, \gamma=%.2f$" \
+                          % (fit_pars[0], fit_pars[1], fit_pars[2])
+            errorLabel = r"$error_{max}=%.0f$" % (self.data[edp]["accuracy"][0]) + "%, "
+            errorCum = r"$error_{cum}=%.0f$" % (self.data[edp]["accuracy"][1]) + "%"
+            regressionLabel = regressionLabel + "\n" + fitParLabel + "\n" + errorLabel + errorCum
 
         elif regression == "Papadopoulos":
-            regressionLabel = r"$y=MaxCost\left[\epsilon\frac{x^\alpha}{\beta^\alpha + x^\alpha} + " \
+            regressionLabel = r"$L=\left[\epsilon\frac{EDP^\alpha}{\beta^\alpha + x^\alpha} + " \
                               r"(1-\epsilon)\frac{x^\gamma}{\delta^\gamma + x^\gamma}\right]$"
-            fitParLabel = r"$MaxCost=%.0f, \alpha=%.2f, \beta=%.2f, \gamma=%.2f, \delta=%.2f, \epsilon=%.2f$" \
-                          % (total_replacement_cost, fit_pars[0], fit_pars[1], fit_pars[2], fit_pars[3], fit_pars[4])
-            errorLabel = r"$error_{max}=%.0f$" % (self.data[edp]["accuracy"]) + "%"
-            regressionLabel = regressionLabel + "\n" + fitParLabel + "\n" + errorLabel
+            fitParLabel = r"$\alpha=%.2f, \beta=%.2f, \gamma=%.2f, \delta=%.2f, \epsilon=%.2f$" \
+                          % (fit_pars[0], fit_pars[1], fit_pars[2], fit_pars[3], fit_pars[4])
+            errorLabel = r"$error_{max}=%.0f$" % (self.data[edp]["accuracy"][0]) + "%, "
+            errorCum = r"$error_{cum}=%.0f$" % (self.data[edp]["accuracy"][1]) + "%"
+            regressionLabel = regressionLabel + "\n" + fitParLabel + "\n" + errorLabel + errorCum
 
         # Initialize figure
         fig = Figure(figsize=(8, 5))
         ax = fig.add_subplot(111)
         cnt = 0
         component = self.data[edp]
-        for key in component["edp_dv_euro"].keys():
-            y_fit = component["edp_dv_euro"][key] / 10.0**3
+        for key in component["slfs"].keys():
+            y_fit = component["slfs"][key] / 10.0**3
             y = component["losses"]["loss_curve"].loc[key] / 10.0**3
             if key == "mean":
-                label = key
+                label = key + ", Data"
+                labelFit = key + ", Fitted"
             else:
-                label = f"{int(key*100)}%"
+                label = f"{int(key*100)}%, Data"
+                labelFit = f"{int(key*100)}, Fitted"
             ax.plot(edp_range, y, color=self.color_grid[cnt], label=label, alpha=0.5, marker='o', markersize=3)
-            ax.plot(edp_range, y_fit, color=self.color_grid[cnt], label=label)
+            ax.plot(edp_range, y_fit, color=self.color_grid[cnt], label=labelFit)
             cnt += 2
 
         # Plotting the scatters of the Monte Carlo simulations
@@ -831,20 +855,20 @@ class VIZ:
 
         # Labeling
         edp_type = self.data[edp]["component"]["EDP"].iloc[0]
-        if edp_type in ["IDR", "IDR NS", "IDR S"]:
-            xlabel = edp_type[0:3] + " [%]"
+        if edp_type in ["IDR", "IDR NS", "IDR S", "PSD", "PSD NS", "PSD S"]:
+            xlabel = r"Peak Storey Drift (PSD), $\theta$ [%]"
             xlim = [0, 5.0]
         else:
-            xlabel = edp_type[0:3] + " [g]"
+            xlabel = r"Peak Floor Acceleration (PFA), $a$ [g]"
             xlim = [0, 4.0]
         ylim = [0, max(y_fit) + 50.0]
 
         # Annotating
-        fig.text(0.1, 0.95, regressionLabel, horizontalalignment='left', verticalalignment="top")
+        fig.text(0.78, 0.3, regressionLabel, horizontalalignment='right', verticalalignment="top")
 
         # Labeling
         ax.set_xlabel(xlabel)
-        ax.set_ylabel(r"Losses [$10^3 €/100 m^2$]")
+        ax.set_ylabel(r"Loss, $L$")
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         ax.grid(True, which="major", axis="both", ls="--", lw=1.0)
