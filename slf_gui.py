@@ -293,7 +293,7 @@ class Root(tk.Tk):
 
         # Default font style
         self.default_font = "Helvetica"
-        self.option_add("*Font", self.default_font)
+        self.option_add("*Font", self.default_font + " 12")
 
         # Toolbox title
         self.title("Storey Loss Function Generator")
@@ -355,7 +355,7 @@ class Root(tk.Tk):
         self.MODES = [("Weibull", "Weibull"),
                       ("Papadopoulos et al. (2019)", "Papadopoulos")]
         self.regression_variable = tk.StringVar()
-        self.regression_variable.set("Weibull")
+        self.regression_variable.set("Papadopoulos")
         row_id = self.create_radio_button(row_id+2, self.regression_variable)
 
         # Define EDP steps
