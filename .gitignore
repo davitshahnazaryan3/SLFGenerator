@@ -1,6 +1,6 @@
 
-slf_v0.1.py
-Database/*
-.idea/*
-test.py
+.idea/*\
 client/*
+.archive/*
+inno_compiler_slf.iss
+__pycache__/*

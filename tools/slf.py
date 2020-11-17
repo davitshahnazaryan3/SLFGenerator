@@ -49,7 +49,7 @@ class SLF:
         if edp_bins is None:
             edp_bins = [0.1, 0.05]
         self.dir = Path.cwd()
-        self.database_dir = self.dir / "Database"
+        self.database_dir = self.dir / "cache"
         self.project_name = project_name
         self.component_data = component_data
         self.correlation_tree = correlation_tree
@@ -331,7 +331,7 @@ class SLF:
 
     def assign_ds_to_dependent(self, damage_state, matrix):
         """
-        Tests if any non-assigned DS exist (i.e. -1) and makes correction if necessary
+        Corrects the assignment of DSs for dependent components
         :param damage_state: dict               Damage states of each component for each simulation
         :param matrix: ndarray                  Correlation tree matrix
         :return: dict                           Damage states of each component for each simulation
@@ -534,6 +534,7 @@ class SLF:
         cnt = 0
         # For visualization and storing relevant information for easy access
         cache = {}
+        slf_output = {}
         # For storing into a .xlsx file
         outputs = {}
 
@@ -587,6 +588,8 @@ class SLF:
                                      'accuracy':                    [error_max, error_cum],
                                      "regression":                  self.regression}
 
+                slf_output[f"{group}"] = {"slfs":                   slfs}
+
                 outputs[f"{group}"] = {'fit_pars':                  fitting_pars,
                                        'accuracy':                  [error_max, error_cum],
                                        'slfs':                      slfs}
@@ -596,4 +599,4 @@ class SLF:
         # Completion
         print("[SUCCESS] Successful completion!")
 
-        return outputs, cache
+        return outputs, slf_output, cache

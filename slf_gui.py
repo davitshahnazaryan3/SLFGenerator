@@ -19,6 +19,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 
+# TODO, need to rid of libraries and create specific functions instead and optimize for time
 class Root(tk.Tk):
     def __init__(self):
         # Initiating variables to be used later on
@@ -37,6 +38,7 @@ class Root(tk.Tk):
         self.perform_grouping = None
         self.cache = None
         self.outputs = None
+        self.slf_outputs = None
         self.canvas = None
         self.toolbarFrame = None
         self.figure_on = None
@@ -419,7 +421,11 @@ class Root(tk.Tk):
         if f is None:   # asksaveasfile return `None` if dialog closed with "cancel".
             return
         else:
-            pickle.dump(self.cache, f)
+            pickle.dump(self.slf_outputs, f)
+            # Export cache to cache
+            filename = self.DIR / "cache" / f"{self.project_name}_{self.correlation_type_variable.get()}.pickle"
+            with open(filename, "wb") as handle:
+                pickle.dump(self.cache, handle)
 
     def export_to_xlsx(self):
         """
@@ -492,7 +498,7 @@ class Root(tk.Tk):
                 slf = SLF(project_name, component_data, correlation_tree, edp_bin, correlation_type, regression_type,
                           n_realizations, conversion_factor, replCost, do_grouping)
                 # Obtains the outputs
-                self.outputs, self.cache = slf.master()
+                self.outputs, self.slf_outputs, self.cache = slf.master()
 
         except:
             # Show warning if input data is missing
