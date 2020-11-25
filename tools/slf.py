@@ -588,7 +588,13 @@ class SLF:
                                      'accuracy':                    [error_max, error_cum],
                                      "regression":                  self.regression}
 
-                slf_output[f"{group}"] = {"slfs":                   slfs}
+                slf_output[f"{group}"] = {"slfs":                   slfs,
+                                          "accuracy":               [error_max, error_cum],
+                                          "fit_pars":               fitting_pars,
+                                          "regression":             self.regression,
+                                          "edp":                    self.edp_range,
+                                          "costs":                  total_loss_storey, 
+                                          "edp_type":               edp}
 
                 outputs[f"{group}"] = {'fit_pars':                  fitting_pars,
                                        'accuracy':                  [error_max, error_cum],
