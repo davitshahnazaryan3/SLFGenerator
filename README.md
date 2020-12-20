@@ -1,10 +1,14 @@
 ### Storey-loss-function (SLF) Generator
 
+TODO: Remove heavy libraries for the installer
+
 The tool allows the automated production of SLFs based on input fragility, consequence and quantity data.
 
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 
 Running: Run slf_gui.py.
+
+Required libraries: tkinter, PIL, pandas, random, matplotlib, numpy, scipy, math
 
 
 [SLF estimation procedure](https://www.researchgate.net/publication/265411359_Building-Specific_Loss_Estimation_Methods_Tools_for_Simplified_Performance-Based_Earthquake_Engineering)
@@ -118,7 +122,7 @@ States, consequence functions*
 
         OUTPUT: Quantiles of story losses and story loss ratios
         
-        Following fitting function is used for SLF generation
+        Sample fitting function used for SLF generation
         
     <img src="https://latex.codecogs.com/svg.latex?\Large&space;y=\alpha*(1-\exp(-(\frac{x}{\beta})^\gamma))" title="eq.1" /><br/>
 
