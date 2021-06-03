@@ -4,3 +4,5 @@ client/*
 .archive/*
 inno_compiler_slf.iss
 __pycache__/*
+venv/*
+

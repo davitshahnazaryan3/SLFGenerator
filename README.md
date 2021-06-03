@@ -1,6 +1,7 @@
 ### Storey-loss-function (SLF) Generator
 
-TODO: Remove heavy libraries for the installer
+TODO:   Remove heavy libraries for the installer
+        Add consideration of mutually exclusive and simultaneous damage states
 
 The tool allows the automated production of SLFs based on input fragility, consequence and quantity data.
 

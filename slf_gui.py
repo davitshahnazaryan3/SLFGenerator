@@ -179,9 +179,13 @@ class Root(tk.Tk):
         :return: None
         """
         filename = filedialog.askopenfilename(initialdir=self.DIR, title="Select a File",
-                                              filetypes=(("csv files", f"*csv"), ("all files", "*.")))
+                                              filetypes=(("csv files", "*csv"), ("xlsx files", "*xlsx"),
+                                                         ("all files", "*.")))
         try:
-            self.data[name] = pd.read_csv(filename)
+            if filename.endswith(".csv"):
+                self.data[name] = pd.read_csv(filename)
+            else:
+                self.data[name] = pd.read_excel(filename)
         except:
             self.data[name] = None
 
