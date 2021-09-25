@@ -21,6 +21,7 @@ Considerations for double counting should be done at the input level and the con
 ### Table of Contents
 <details open>
 <summary>Show/Hide</summary>
+<br>
 
 1. [Publications](#publications)
 2. [Input arguments](#input-arguments)
@@ -32,11 +33,11 @@ Considerations for double counting should be done at the input level and the con
 
 </details>
 
-
 ### Publications
 <details>
 <a name="publications"></a>
 <summary>Show/Hide</summary>
+<br>
 
 [Shahnazaryan D, O’Reilly GJ, Monteiro R. Story loss functions for seismic design and assessment: Development of tools and application. 
 Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgate.net/publication/353058466_Story_loss_functions_for_seismic_design_and_assessment_Development_of_tools_and_application)
@@ -47,6 +48,7 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 <details>
 <a name="input-arguments"></a>
 <summary>Show/Hide</summary>
+<br>
 
 * Project name
 * .csv file containing component data
@@ -63,15 +65,16 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 <details>
 <a name="workflow"></a>
 <summary>Show/Hide</summary>
+<br>
 
 <h5 align="center">Toolbox workflow</h5>
 <p align="center">
-  <img src="sample/Figures/Workflow.png" width=600>
+  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/tree/master/sample/Figures/Workflow.png" width=600>
 </p>
 
 <h5 align="center">Toolbox modules</h5>
 <p align="center">
-  <img src="sample/Figures/modules.png" width=600>
+  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/tree/master/sample/Figures/modules.png" width=600>
 </p>
 
 </details>
@@ -80,6 +83,7 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 <details>
 <a name="tools-used"></a>
 <summary>Show/Hide</summary>
+<br>
 
 * tkinter - Graphical User Interface
 * pandas - manipulation of data
@@ -88,7 +92,7 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
   
 <h5 align="center">Sample Fitting and Generation of SLFs</h5>
 <p align="center">
-  <img src="sample/Figures/OutputFit.jpg" width=600>
+  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/tree/master/sample/Figures/OutputFit.jpg" width=600>
 </p>
 
 * scipy optimization - fitting the data
@@ -100,6 +104,7 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 <details>
 <a name="structure"></a>
 <summary>Show/Hide</summary>
+<br>
 
 Note: *The tool relies on the accuracy of the user's provided data, it does not offer its own component information, 
 therefore double counting or dependency of different component fragilities should be accounted for by the user, as the 
@@ -189,6 +194,7 @@ States, consequence functions*
 <details>
 <a name="references"></a>
 <summary>Show/Hide</summary>
+<br>
 
 [SLF estimation procedure](https://www.researchgate.net/publication/265411359_Building-Specific_Loss_Estimation_Methods_Tools_for_Simplified_Performance-Based_Earthquake_Engineering)
 
@@ -204,7 +210,7 @@ States, consequence functions*
 <details>
 <a name="acronyms"></a>
 <summary>Show/Hide</summary>
-
+<br>
 
 EDP:    Engineering Demand Parameter
 
