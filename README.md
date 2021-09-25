@@ -178,12 +178,6 @@ States, consequence functions*
 
         OUTPUT: Quantiles of story losses and story loss ratios
         
-        Sample fitting function used for SLF generation
-        
-    <img src="https://latex.codecogs.com/svg.latex?\Y=\alpha*(1-\exp(-(\frac{x}{\beta})^\gamma))" title="eq.1" /><br/>
-
-        where α, β, γ are the fitting coefficients, x is the EDP range and y is the fitted SLF functions
-        
         OUTPUT: Fitted SLF
         
 8. Export outputs to .xlsx and cache to .pickle if specified
