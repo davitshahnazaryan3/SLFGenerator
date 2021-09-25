@@ -1,50 +1,78 @@
 """
 Runs the SLF generator
 """
-# tools, libraries
+# UI
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
 from PIL import Image, ImageTk
+
 # Path libraries
 from pathlib import Path
+
 # Data manipulation libraries
 import pandas as pd
 import pickle
 import random
+
 # Importing the SLF Generator tool
 from tools.slf import SLF
+
 # Data visualization
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
 
-# TODO, need to rid of libraries and create specific functions instead and optimize for time
 class Root(tk.Tk):
     def __init__(self):
-        # Initiating variables to be used later on
+        """
+        Initiating variables
+        data: DataFrame                             Model component inventory
+        cache: dict                                 SLF analysis data to be stored as cache (pickle)
+        slf_outputs: dict                           Focused (smaller) SLF analysis data to be stored as pickle
+        outputs: dict                               More focused (smaller) SLF analysis data to be stored as csv
+        project_name: str                           Project name
+        MODES: list of tuples                       Radio button selection
+        labelFrame: tkinter.labelframe              Tkinter labelframe for browsing component and correlation data
+        correlation_type_variable: tkinter var      Correlation type variable
+        regression_variable: tkinter var            Regression type variable
+        psd_bin_entry: tkinter entry                PSD bin size
+        pfa_bin_entry: tkinter entry                PFA bin size
+        n_realizations: tkinter entry               Number of realizations for Monte Carlo simulations
+        conversion_factor: tkinter entry            Conversion factor for costs
+        replCost: tkinter entry                     Replacement cost
+        perform_grouping: tkinter variable          Boolean, perform performance grouping or not
+        canvas: tkinter canvas (Frame)              Tkinter canvas for UI
+        toolbarFrame: tkinter canvas                Canvas for displaying data visualization
+        ax: matplotlib axes                         Plot axes
+        fig: matplotlib figure                      Plot figure identifier
+        imgTk: PIL.imageTk.PhotoImage               Logo of IUSS Pavia
+        img_label: tkinter Canvas                   For positioning of IUSS logo
+        """
+        # Inputs
         self.data = None
-        self.labelFrame = None
+        self.cache = None
+        self.slf_outputs = None
+        self.outputs = None
+        self.project_name = None
+
+        # Tkinter UI
         self.MODES = None
+        self.labelFrame = None
         self.correlation_type_variable = None
         self.regression_variable = None
         self.psd_bin_entry = None
         self.pfa_bin_entry = None
-        self.precision = None
-        self.conf_level = None
         self.n_realizations = None
         self.conversion_factor = None
         self.replCost = None
         self.perform_grouping = None
-        self.cache = None
-        self.outputs = None
-        self.slf_outputs = None
+
+        # Tkinter UI and data visualization
         self.canvas = None
         self.toolbarFrame = None
-        self.figure_on = None
-        self.ax = None
         self.fig = None
-        self.project_name = None
+        self.ax = None
         self.imgTk = None
         self.img_label = None
 
@@ -370,7 +398,6 @@ class Root(tk.Tk):
 
         # Entry for IDR bin in %
         self.psd_bin_entry = self.create_entry(row_id + 1, "PSD bin", "%", 0.1)
-
         # Entry for PFA bin in g
         self.pfa_bin_entry = self.create_entry(row_id + 2, "PFA bin", "g", 0.05)
 
@@ -384,7 +411,7 @@ class Root(tk.Tk):
         conversion_label.grid(row=row_id + 5, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
         self.conversion_factor = self.create_entry(row_id + 6, "Conversion factor", "", 1.0)
 
-        # Conversion factor
+        # Replacement cost
         replCost_label = tk.Label(self.frame, text="Replacement Cost", font=f"{self.default_font} 12 bold")
         replCost_label.grid(row=row_id + 7, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
         self.replCost = self.create_entry(row_id + 8, "Replacement Cost", "", 1.0)

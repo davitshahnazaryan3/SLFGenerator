@@ -1,39 +1,52 @@
-### Storey-loss-function (SLF) Generator
+<h1 align="center">Storey-loss-function (SLF) Generator</h1> 
 
-TODO:   Remove heavy libraries for the installer
-        Add consideration of mutually exclusive and simultaneous damage states
+Performance-based earthquake engineering (PBEE) has become an important frame- work for quantifying seismic losses. 
+However, due to its computationally expensive implementation through a typically detailed component-based approach (i.e. Federal Emergency Management Agency (FEMA) P-58), it has primarily been used within academic research and specific studies. 
+A simplified alternative more desirable for practitioners is based on story loss functions (SLFs), which estimate a building’s expected monetary loss per story due to seismic demand. 
+
+These simplified SLFs reduce the data required compared to a detailed study, which is especially true at a design stage, 
+where detailed component information is likely yet to be defined. 
+A Python-based toolbox for the development of user-specific and customizable SLFs for use within seismic design and assessment of buildings. 
+Finally, a comparison of SLF-based and component-based loss estimation approaches is carried out through the application to a real case study school building. 
+The tool was used within the reference publication, where the agreement and consistency of the attained loss metrics demonstrate the quality and ease of the SLF-based approach in achieving accurate results for a more expedite assessment of building performance.
 
 The tool allows the automated production of SLFs based on input fragility, consequence and quantity data.
 
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 
-Running: Run slf_gui.py.
+**Running the app**: Run slf_gui.py.
 
-Required libraries: tkinter, PIL, pandas, random, matplotlib, numpy, scipy, math
+**Required libraries**: requirements.txt
 
+### Table of Contents
+<details open>
+<summary>Show/Hide</summary>
 
-[SLF estimation procedure](https://www.researchgate.net/publication/265411359_Building-Specific_Loss_Estimation_Methods_Tools_for_Simplified_Performance-Based_Earthquake_Engineering)
+1. [Publications](#publications)
+2. [Input arguments](#input-arguments)
+3. [Workflow and Modules](#workflow)
+5. [Tools Used](#tools-used)
+6. [Structure](#structure)
+6. [References](#references)
+7. [Acronyms](#acronyms)
 
-[FEMA P-58 for fragilities](https://femap58.atcouncil.org/reports)
-
-[Consequence functions](https://femap58.atcouncil.org/reports)
-
-[Python GUI for reference](https://blog.resellerclub.com/the-6-best-python-gui-frameworks-for-developers/)
-
-[Repair costs - Central Italy](https://sisma2016.gov.it/wp-content/uploads/2019/12/Allegato-3-Prezzario-Cratere_2018-Finale.pdf)
-
-**Acronyms**
-
-EDP:    Engineering Demand Parameter
-
-DV:     Decision Variable
-
-DS:     Damage State
-
-CDF:    Cumulative distribution function
+</details>
 
 
-**Input arguments**
+### Publications
+<details>
+<a name="publications"></a>
+<summary>Show/Hide</summary>
+
+[Shahnazaryan D, O’Reilly GJ, Monteiro R. Story loss functions for seismic design and assessment: Development of tools and application. 
+Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgate.net/publication/353058466_Story_loss_functions_for_seismic_design_and_assessment_Development_of_tools_and_application)
+
+</details>
+
+### Input arguments
+<details>
+<a name="input-arguments"></a>
+<summary>Show/Hide</summary>
 
 * Project name
 * .csv file containing component data
@@ -44,16 +57,53 @@ CDF:    Cumulative distribution function
 * EDP step, i.e. % for PSD and g for PFA
 * Flag to store the results in the Database
 
+</details>
+
+### Workflow and Modules
+<details>
+<a name="workflow"></a>
+<summary>Show/Hide</summary>
+
+<h5 align="center">Toolbox workflow</h5>
+<p align="center">
+  <img src="sample/Figures/Workflow.png" width=600>
+</p>
+
+<h5 align="center">Toolbox modules</h5>
+<p align="center">
+  <img src="sample/Figures/modules.png" width=600>
+</p>
+
+</details>
+
+### Tools used
+<details>
+<a name="tools-used"></a>
+<summary>Show/Hide</summary>
+
+* tkinter - Graphical User Interface
+* pandas - manipulation of data
+* numpy - computations
+* matplotlib - for data visualization
+  
+<h5 align="center">Sample Fitting and Generation of SLFs</h5>
+<p align="center">
+  <img src="sample/Figures/OutputFit.jpg" width=600>
+</p>
+
+* scipy optimization - fitting the data
+* Monte Carlo simulations
+
+</details>
+
+### Structure
+<details>
+<a name="structure"></a>
+<summary>Show/Hide</summary>
+
 Note: *The tool relies on the accuracy of the user's provided data, it does not offer its own component information, 
 therefore double counting or dependency of different component fragilities should be accounted for by the user, as the 
 tool will work either way.*
-
-**Step-by-step procedure**
-
-The tool relies on three performance groups, that is
-* Drift-sensitive structural elements
-* Drift-sensitive non-structural elements
-* Acceleration-sensitive non-structural elements
 
 1. Read component data ← *component data*
 
@@ -125,10 +175,43 @@ States, consequence functions*
         
         Sample fitting function used for SLF generation
         
-    <img src="https://latex.codecogs.com/svg.latex?\Large&space;y=\alpha*(1-\exp(-(\frac{x}{\beta})^\gamma))" title="eq.1" /><br/>
+    <img src="https://latex.codecogs.com/svg.latex?\Y=\alpha*(1-\exp(-(\frac{x}{\beta})^\gamma))" title="eq.1" /><br/>
 
         where α, β, γ are the fitting coefficients, x is the EDP range and y is the fitted SLF functions
         
         OUTPUT: Fitted SLF
         
 8. Export outputs to .xlsx and cache to .pickle if specified
+
+</details>
+
+### References
+<details>
+<a name="references"></a>
+<summary>Show/Hide</summary>
+
+[SLF estimation procedure](https://www.researchgate.net/publication/265411359_Building-Specific_Loss_Estimation_Methods_Tools_for_Simplified_Performance-Based_Earthquake_Engineering)
+
+[FEMA P-58 for fragilities](https://femap58.atcouncil.org/reports)
+
+[Consequence functions](https://femap58.atcouncil.org/reports)
+
+[Repair costs - Central Italy](https://sisma2016.gov.it/wp-content/uploads/2019/12/Allegato-3-Prezzario-Cratere_2018-Finale.pdf)
+
+</details>
+
+### Acronyms
+<details>
+<a name="acronyms"></a>
+<summary>Show/Hide</summary>
+
+
+EDP:    Engineering Demand Parameter
+
+DV:     Decision Variable
+
+DS:     Damage State
+
+CDF:    Cumulative distribution function
+
+</details>

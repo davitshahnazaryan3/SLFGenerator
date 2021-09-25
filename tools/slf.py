@@ -15,7 +15,6 @@ EDP:    Engineering Demand Parameter
 DV:     Decision Variable
 DS:     Damage State
 """
-from pathlib import Path
 import pandas as pd
 import numpy as np
 import math
@@ -48,8 +47,6 @@ class SLF:
         """
         if edp_bins is None:
             edp_bins = [0.1, 0.05]
-        self.dir = Path.cwd()
-        self.database_dir = self.dir / "cache"
         self.project_name = project_name
         self.component_data = component_data
         self.correlation_tree = correlation_tree
@@ -271,7 +268,7 @@ class SLF:
         covs_cost = np.zeros((len(component_data), max_ds_selected))
 
         # Deriving fragility functions
-        # TODO, modify 4, make index reading smarter
+        # TODO, modify 4, better index reading
         data = component_data.values[:, 4:]
 
         # Get parameters of the fragility and consequence functions
