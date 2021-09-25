@@ -69,12 +69,12 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 
 <h5 align="center">Toolbox workflow</h5>
 <p align="center">
-  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/tree/master/sample/Figures/Workflow.png" width=600>
+  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/blob/master/sample/Figures/Workflow.PNG" width=600>
 </p>
 
 <h5 align="center">Toolbox modules</h5>
 <p align="center">
-  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/tree/master/sample/Figures/modules.png" width=600>
+  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/blob/master/sample/Figures/modules.PNG" width=600>
 </p>
 
 </details>
@@ -92,7 +92,7 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
   
 <h5 align="center">Sample Fitting and Generation of SLFs</h5>
 <p align="center">
-  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/tree/master/sample/Figures/OutputFit.jpg" width=600>
+  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/blob/master/sample/Figures/OutputFit.jpg" width=600>
 </p>
 
 * scipy optimization - fitting the data
