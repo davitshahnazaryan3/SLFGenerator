@@ -1,26 +1,22 @@
-"""
-Runs the SLF generator
-"""
-# UI
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
 from PIL import Image, ImageTk
 
-# Path libraries
 from pathlib import Path
-
-# Data manipulation libraries
 import pandas as pd
 import pickle
 import random
-
-# Importing the SLF Generator tool
-from tools.slf import SLF
-
-# Data visualization
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
+    NavigationToolbar2Tk
 from matplotlib.figure import Figure
+
+from slf import SLF
+
+
+def run():
+    root = Root()
+    root.mainloop()
 
 
 class Root(tk.Tk):
@@ -529,7 +525,7 @@ class Root(tk.Tk):
                 slf = SLF(project_name, component_data, correlation_tree, edp_bin, correlation_type, regression_type,
                           n_realizations, conversion_factor, replCost, do_grouping)
                 # Obtains the outputs
-                self.outputs, self.slf_outputs, self.cache = slf.master()
+                self.outputs, self.slf_outputs, self.cache = slf.generate_slfs()
 
         except:
             # Show warning if input data is missing
@@ -913,8 +909,3 @@ class VIZ:
         fig.tight_layout()
 
         return fig, ax
-
-
-if __name__ == "__main__":
-    root = Root()
-    root.mainloop()
