@@ -37,4 +37,4 @@ class SLFTest:
 
         out = model.generate_slfs()
 
-        # model.export_to_json(out, self.export_path)
+        model.export_to_json(out, self.export_path)

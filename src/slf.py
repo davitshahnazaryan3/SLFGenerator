@@ -519,15 +519,14 @@ class SLF:
         if self.correlation_tree is None:
             return damage_state
 
-        # Loop over each component
-        for j in damage_state.keys():
-            # j is the Dependent component ID
+        for i in range(self.matrix.shape[0]):
             # Check if component is dependent or independent
-            if j != self.matrix[j - 1][0]:
+            if i + 1 != self.matrix[i][0]:
                 # -- Component is dependent
                 # Causation component ID
-                m = self.matrix[j - 1][0]
-
+                m = self.matrix[i][0]
+                # Dependent component ID
+                j = i + 1
                 # Loop for each simulation
                 for n in range(self.realizations):
                     causation_ds = damage_state[m][n]
@@ -577,8 +576,8 @@ class SLF:
         num_ds = means_cost.shape[1]
 
         repair_cost = {}
-        idx = 0
         for item in damage_state.keys():
+            idx = int(item) - 1
             repair_cost[item] = {}
             for n in range(self.realizations):
                 for ds in range(num_ds + 1):
@@ -591,15 +590,11 @@ class SLF:
                         best_fit = \
                             self.component_data.iloc[
                                 item - 1][f"DS{ds}, best fit"].lower()
+
                         # EDP ID where ds is observed
                         idx_list = np.where(damage_state[item][n] == ds)[0]
                         for idx_repair in idx_list:
-                            if best_fit == 'normal truncated':
-                                # TODO, Add options to truncate the
-                                # distribution, add option to
-                                # do multi-modal distribution
-                                pass
-                            elif best_fit == 'lognormal':
+                            if best_fit == 'lognormal':
                                 a = np.random.normal(means_cost[idx][ds - 1],
                                                      covs_cost[idx][ds - 1]
                                                      * means_cost[idx][ds - 1])
@@ -817,6 +812,15 @@ class SLF:
         """
         out = {}
 
+        # Obtain component fragility and consequence functions
+        fragilities, means_cost, covs_cost = self.fragility_function()
+
+        # Perform Monte Carlo simulations for damage state sampling
+        damage_state = self.perform_monte_carlo(fragilities)
+
+        # Populate the damage state matrix for correlated components
+        damage_state = self.enforce_ds_dependent(damage_state)
+
         for i, group in enumerate(self.component_groups):
             if self.component_groups[group].empty:
                 continue
@@ -828,20 +832,13 @@ class SLF:
                 component = None
 
             # Select component inventory to analyze
-            self.component_data = self.component_groups[group]
-
-            # Obtain component fragility and consequence functions
-            fragilities, means_cost, covs_cost = self.fragility_function()
-
-            # Perform Monte Carlo simulations for damage state sampling
-            damage_state = self.perform_monte_carlo(fragilities)
-
-            # Populate the damage state matrix for correlated components
-            damage_state = self.enforce_ds_dependent(damage_state)
+            component_data_group = self.component_groups[group]
+            item_ids = list(component_data_group['ITEM'])
+            ds_group = {key: damage_state[key] for key in item_ids}
 
             # Calculate the costs
             total, ratio, _ = self.calculate_costs(
-                damage_state, means_cost, covs_cost)
+                ds_group, means_cost, covs_cost)
 
             # Perform regression
             losses, losses_fitted, fitting_parameters = \
