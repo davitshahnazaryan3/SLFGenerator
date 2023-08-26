@@ -36,6 +36,7 @@ class SLF:
     # Correlation tree matrix
     matrix = None
     component_groups = None
+    cache = None
     NEGLIGIBLE = 1e-20
 
     def __init__(
@@ -725,17 +726,16 @@ class SLF:
         losses_fitted = {}
         fitting_parameters = {}
         for q in percentiles:
-            q_key = str(q)
             max_val = max(losses["loss_ratio"].loc[q])
             popt, pcov = curve_fit(
                 fitting_function, edp_range,
                 losses["loss_ratio"].loc[q] / max_val,
                 maxfev=10**6)
 
-            losses_fitted[q_key] = fitting_function(edp_range, *popt) * max_val
+            losses_fitted[q] = fitting_function(edp_range, *popt) * max_val
             # Truncating at zero to prevent negative values
-            losses_fitted[q_key][losses_fitted[q_key] <= 0] = 0.0
-            fitting_parameters[q_key] = {"popt": popt, "pcov": pcov}
+            losses_fitted[q][losses_fitted[q] <= 0] = 0.0
+            fitting_parameters[q] = {"popt": popt, "pcov": pcov}
 
         # Fitting the mean
         max_val = max(losses["loss_ratio"].loc['mean'])
@@ -811,6 +811,7 @@ class SLF:
             SLFs per each performance group
         """
         out = {}
+        cache = {}
 
         # Obtain component fragility and consequence functions
         fragilities, means_cost, covs_cost = self.fragility_function()
@@ -835,9 +836,13 @@ class SLF:
             component_data_group = self.component_groups[group]
             item_ids = list(component_data_group['ITEM'])
             ds_group = {key: damage_state[key] for key in item_ids}
+            fragilities_group = {
+                'ITEMs': {key: fragilities['ITEMs'][key] for key in item_ids}
+            }
+            fragilities_group['EDP'] = fragilities['EDP']
 
             # Calculate the costs
-            total, ratio, _ = self.calculate_costs(
+            total, ratio, repair_cost = self.calculate_costs(
                 ds_group, means_cost, covs_cost)
 
             # Perform regression
@@ -853,6 +858,23 @@ class SLF:
 
             out[str(group)]['error_max'] = error_max
             out[str(group)]['error_cum'] = error_cum
+
+            cache[str(group)] = {
+                'component': component_data_group,
+                'fragilities': fragilities_group,
+                'total_loss_storey': total,
+                'total_loss_storey_ratio': ratio,
+                'repair_cost': repair_cost,
+                'damage_states': damage_state,
+                'losses': losses,
+                'slfs': losses_fitted,
+                'fit_pars': fitting_parameters,
+                'accuracy': [error_max, error_cum],
+                'regression': self.regression,
+                'edp': self.edp,
+            }
+
+        self.cache = cache
 
         return out
 

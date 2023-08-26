@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from slf import SLF
-
+from slf_gui import run
 
 path = Path(__file__).resolve().parent
 
@@ -38,3 +38,6 @@ class SLFTest:
         out = model.generate_slfs()
 
         model.export_to_json(out, self.export_path)
+
+    def test_gui(self):
+        run()
