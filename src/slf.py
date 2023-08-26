@@ -1,4 +1,6 @@
+import json
 from typing import List, Union
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import math
@@ -42,7 +44,7 @@ class SLF:
         edp: str,
         correlation_tree: CorrelationTreeModel = None,
         component: List[str] = None,
-        edp_range: List[float] = None,
+        edp_range: Union[List[float], np.ndarray] = None,
         edp_bin: float = None,
         do_grouping: bool = True,
         conversion: float = 1.0,
@@ -70,7 +72,7 @@ class SLF:
         component : List[str], optional
             Component type, for example, ["ns", "s"], by default None
             where "ns" stands for non-structural and "s" stands for structural
-        edp_range : List[float], optional
+        edp_range : Union[List[float], np.ndarray], optional
             EDP range, by default None
         edp_bin : float, optional
             EDP bin size, by default None
@@ -133,14 +135,19 @@ class SLF:
             If incorrect EDP type is provided, must be 'psd' or 'pfa'
         """
         if self.edp == "idr" or self.edp == "psd":
-            self.edp_bin = 0.1 / 100
-            self.edp_range = np.arange(0, 0.2 + self.edp_bin, self.edp_bin)
+            self.edp_bin = self.edp_bin if self.edp_bin is not None \
+                else 0.1 / 100
+            if self.edp_range is None:
+                self.edp_range = np.arange(0, 0.2 + self.edp_bin, self.edp_bin)
         elif self.edp == "pfa":
-            self.edp_bin = 0.05
-            self.edp_range = np.arange(0, 10. + self.edp_bin, self.edp_bin)
+            self.edp_bin = self.edp_bin if self.edp_bin is not None else 0.05
+            if self.edp_range is None:
+                self.edp_range = np.arange(0, 10. + self.edp_bin, self.edp_bin)
         else:
             raise ValueError("Wrong EDP type, must be 'PSD' or 'PFA'")
         self.edp_range[0] = self.NEGLIGIBLE
+
+        self.edp_range = np.asarray(self.edp_range)
 
     def _get_component_data(self):
         """Gets component information from the user provided .csv file
@@ -513,14 +520,14 @@ class SLF:
             return damage_state
 
         # Loop over each component
-        for i in range(self.matrix.shape[0]):
+        for j in damage_state.keys():
+            # j is the Dependent component ID
             # Check if component is dependent or independent
-            if i + 1 != self.matrix[i][0]:
+            if j != self.matrix[j - 1][0]:
                 # -- Component is dependent
                 # Causation component ID
-                m = self.matrix[i][0]
-                # Dependent component ID
-                j = i + 1
+                m = self.matrix[j - 1][0]
+
                 # Loop for each simulation
                 for n in range(self.realizations):
                     causation_ds = damage_state[m][n]
@@ -851,3 +858,7 @@ class SLF:
             out[str(group)]['error_cum'] = error_cum
 
         return out
+
+    def export_to_json(self, out: SLFModel, export_path: Path) -> None:
+        with open(export_path, 'w') as json_file:
+            json.dump(out, json_file)
