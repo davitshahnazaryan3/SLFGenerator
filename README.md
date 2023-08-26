@@ -14,9 +14,40 @@ The tool allows the automated production of SLFs based on input fragility, conse
 
 Considerations for double counting should be done at the input level and the consequence function should mirror it.
 
-**Running the app**: Run slf_gui.py.
 
-**Required libraries**: requirements.txt
+***
+## Installation
+
+    pip install storeyloss
+
+***
+## Example application without UI
+
+    import storeyloss
+    import pandas as pd
+
+    component_data = pd.read_csv("sample/inventory.csv")
+    correlation = pd.read_csv("sample/correlation.csv")
+
+    model = storeyloss.SLF(
+        component_data,
+        'psd',
+        correlation_tree=correlation,
+        do_grouping=True,
+    )
+
+    out = model.generate_slfs()
+    model.export_to_json(out, path)
+
+
+## Example application with UI
+
+    import storeyloss
+
+    storeyloss.run()
+
+![ui-example](./media/ui.gif)
+
 
 ### Table of Contents
 <details open>
@@ -26,10 +57,8 @@ Considerations for double counting should be done at the input level and the con
 1. [Publications](#publications)
 2. [Input arguments](#input-arguments)
 3. [Workflow and Modules](#workflow)
-5. [Tools Used](#tools-used)
-6. [Structure](#structure)
-6. [References](#references)
-7. [Acronyms](#acronyms)
+4. [Tools Used](#tools-used)
+5. [Acronyms](#acronyms)
 
 </details>
 
@@ -52,12 +81,14 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 
 * Project name
 * .csv file containing component data
-* .csv file containing the correlation tree
-* Correlation type, i.e. Correlated or Independent
+* .csv file containing the correlation tree, by default None
 * Number of simulations, i.e. Monte Carlo simulations to generate damage states for analysis
-* EDP type, i.e. PSD or PFA
-* EDP step, i.e. % for PSD and g for PFA
-* Flag to store the results in the Database
+* EDP name, i.e. PSD or PFA
+* EDP bin, i.e. % for PSD and g for PFA
+* Regression function type: weibull or papadopoulos
+* Conversion factor for costs, by default 1.0
+* Replacement cost of building, by default 1.0
+* Flag to whether group components by their performance typology
 
 </details>
 
@@ -67,15 +98,9 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 <summary>Show/Hide</summary>
 <br>
 
-<h5 align="center">Toolbox workflow</h5>
-<p align="center">
-  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/blob/master/sample/Figures/Workflow.PNG" width=600>
-</p>
+![workflow](./media/Workflow.PNG)
 
-<h5 align="center">Toolbox modules</h5>
-<p align="center">
-  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/blob/master/sample/Figures/modules.PNG" width=600>
-</p>
+![modules](./media/modules.PNG)
 
 </details>
 
@@ -90,113 +115,10 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 * numpy - computations
 * matplotlib - for data visualization
   
-<h5 align="center">Sample Fitting and Generation of SLFs</h5>
-<p align="center">
-  <img src="https://github.com/davitshahnazaryan3/SLFGenerator/blob/master/sample/Figures/OutputFit.jpg" width=600>
-</p>
+![sample-fit](./media/OutputFit.jpg)
 
 * scipy optimization - fitting the data
 * Monte Carlo simulations
-
-</details>
-
-### Structure
-<details>
-<a name="structure"></a>
-<summary>Show/Hide</summary>
-<br>
-
-Note: *The tool relies on the accuracy of the user's provided data, it does not offer its own component information, 
-therefore double counting or dependency of different component fragilities should be accounted for by the user, as the 
-tool will work either way.*
-
-1. Read component data ← *component data*
-
-    	OUTPUT: Component fragility functions
-    	OUTPUT: Component consequence functions
-    	OUTPUT: Component quantities
-    	
-2. Obtain the correlation matrix ← *component data*
-
-        OUTPUT: Correlation matrix based on the correlation tree provided
-        
-3. Derive fragility and consequence functions ← *component data*
-
-        OUTPUT: Fragility functions, i.e. lognormal CDF based on provided mean and dispersion
-        OUTPUT: Consequence functions, i.e. mean and covariance of repair costs
-        
-4. Perform Monte Carlo simulation to generate data for analysis ← *fragility functions*<br/>
-*!note - for each type of item **n** simulations are performed to generate random data between 0 and 1 with a 
-predefined length matching the EDP range. The generated array is checked against the fragility of each DS of the given 
-item and DS is assigned.*
-        
-        OUTPUT: Matrix of DS for all items and simulations
-        
-5. DS matrix populated for the dependent components ← *Damage states, correlation tree*
-
-        OUTPUT: Re-populated matrix of dependent components at all Monte Carlo simulations
-        
-6. Evaluate the repair costs on the individual component at each EDP level for each simulation ← *component data, Damage 
-States, consequence functions*
-    
-    6.1. Create the repair cost matrix
-    
-        6.1.1. For each item
-        6.1.2. For each simulation
-        6.1.3. For each DS (i.e. 5)
-                
-                Assign 0 repair cost, where DS 0 is recorded
-                Otherwise assign repair cost -1 as a placeholder for later filling
-                
-                Parse for other DS (i.e. 1, 2, 3, etc.)
-                Populate the repair cost matrix with a cost generated as a random normal/lognormal with repair cost mean and 
-                covariance of a corresponding DS
-                
-                OUTPUT: repair cost matrix, dimensions(item, simulation, EDP range)
-    
-    6.2. Evaluate the total damage cost multiplying the individual cost by each element quantity
-    
-        6.2.1. For each item
-        6.2.2. For each simulation
-                Total repair cost is obtained as the product of repair cost of the given simulation and quantity of the item
-                
-                OUTPUT: Total repair cost matrix,  dimensions(item, simulation)
-                
-    6.3. Evaluate total loss for each story segment
-    
-        6.3.1. For each simulation
-        6.3.2. For each item
-                Sum the total repair costs of all items obtained at the previous level 
-        
-                OUTPUT: Total story loss, dimensions(simulation)
-                
-    6.4. Evaluate total loss ratios
-    
-        OUTPUT: Total story loss ratio as the quotient of total story loss and the input Replacement Cost
-                
-7. Perform regression ← *total story loss, total story loss ratio, edp type, percentiles (e.g. 0.16, 0.50, 0.84) for evaluation*
-
-        OUTPUT: Quantiles of story losses and story loss ratios
-        
-        OUTPUT: Fitted SLF
-        
-8. Export outputs to .xlsx and cache to .pickle if specified
-
-</details>
-
-### References
-<details>
-<a name="references"></a>
-<summary>Show/Hide</summary>
-<br>
-
-[SLF estimation procedure](https://www.researchgate.net/publication/265411359_Building-Specific_Loss_Estimation_Methods_Tools_for_Simplified_Performance-Based_Earthquake_Engineering)
-
-[FEMA P-58 for fragilities](https://femap58.atcouncil.org/reports)
-
-[Consequence functions](https://femap58.atcouncil.org/reports)
-
-[Repair costs - Central Italy](https://sisma2016.gov.it/wp-content/uploads/2019/12/Allegato-3-Prezzario-Cratere_2018-Finale.pdf)
 
 </details>
 

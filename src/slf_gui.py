@@ -609,15 +609,6 @@ class Root(tk.Tk):
             # Visualize first default graph
             if curve.get() == "Fragility":
 
-                # Remove past figure if it exists
-                if plotShow is not None:
-                    plotShow.get_tk_widget().destroy()
-
-                # Trace curve type
-                if trace_curve == "SLF":
-                    item_default = 1
-                trace_curve = "Fragility"
-
                 # Get group case for visualization
                 # Assign the default case if unassigned
                 try:
@@ -626,6 +617,16 @@ class Root(tk.Tk):
                     edp_default = str(edps[0])
 
                 lowest_item = min(fragility_plots[edp_default].keys())
+
+                # Remove past figure if it exists
+                if plotShow is not None:
+                    plotShow.get_tk_widget().destroy()
+
+                # Trace curve type
+                if trace_curve == "SLF":
+                    item_default = lowest_item
+                trace_curve = "Fragility"
+
                 if edp_default != edp_default_old:
                     item_default = lowest_item
 
@@ -664,14 +665,16 @@ class Root(tk.Tk):
                                 sticky=tk.W + tk.E)
 
                 # Forward button
-                highest_item = lowest_item
-                + len(fragility_plots[edp_default]) - 1
+                highest_item = lowest_item \
+                    + len(fragility_plots[edp_default]) - 1
+
                 if item_default == highest_item:
                     button_forward = tk.Button(
                         self.canvas, text=">>", state=tk.DISABLED)
                     button_forward.grid(row=2, column=3)
 
                 # Back button
+                print("low", lowest_item, item_default)
                 if item_default == lowest_item:
                     button_back = tk.Button(
                         self.canvas, text="<<", state=tk.DISABLED)
@@ -686,7 +689,7 @@ class Root(tk.Tk):
                     plotShow.get_tk_widget().destroy()
 
                 if trace_curve == "Fragility":
-                    item_default = lowest_item
+                    item_default = 1
                 trace_curve = "SLF"
 
                 # Get group case for visualization
