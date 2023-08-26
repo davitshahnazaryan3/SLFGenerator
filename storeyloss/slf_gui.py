@@ -10,7 +10,7 @@ import random
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-from slf import SLF
+from .slf import SLF
 
 
 def run():

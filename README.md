@@ -46,7 +46,8 @@ Considerations for double counting should be done at the input level and the con
 
     storeyloss.run()
 
-![ui-example](./media/ui.gif)
+
+![ui-example](https://raw.githubusercontent.com/davitshahnazaryan3/SLFGenerator/master/media/ui.gif)
 
 
 ### Table of Contents
@@ -98,9 +99,10 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 <summary>Show/Hide</summary>
 <br>
 
-![workflow](./media/Workflow.PNG)
 
-![modules](./media/modules.PNG)
+![workflow](https://raw.githubusercontent.com/davitshahnazaryan3/SLFGenerator/master/media/Workflow.PNG)
+
+![modules](https://raw.githubusercontent.com/davitshahnazaryan3/SLFGenerator/master/media/modules.PNG)
 
 </details>
 
@@ -115,7 +117,7 @@ Earthquake Spectra 2021. DOI: 10.1177/87552930211023523](https://www.researchgat
 * numpy - computations
 * matplotlib - for data visualization
   
-![sample-fit](./media/OutputFit.jpg)
+![sample-fit](https://raw.githubusercontent.com/davitshahnazaryan3/SLFGenerator/master/media/OutputFit.jpg)
 
 * scipy optimization - fitting the data
 * Monte Carlo simulations

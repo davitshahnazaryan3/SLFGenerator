@@ -7,6 +7,8 @@ __pycache__/
 /dist
 /.temp/
 /.idea/
+/build
+storeyloss.egg-info/
 
 # local
 .vscode

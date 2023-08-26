@@ -8,7 +8,7 @@ from scipy import stats
 from scipy.optimize import curve_fit
 import warnings
 
-from models import *
+from .models import *
 
 warnings.filterwarnings('ignore')
 
