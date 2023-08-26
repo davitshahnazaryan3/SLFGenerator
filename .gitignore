@@ -1,8 +1,12 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+.pytest_cache/
 
-.idea/*
-client/*
-.archive/*
-inno_compiler_slf.iss
-__pycache__/*
-venv/*
+# Distribution / packaging
+/venv/
+/dist
+/.temp/
+/.idea/
 
+# local
+.vscode
