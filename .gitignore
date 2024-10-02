@@ -1,0 +1,14 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+.pytest_cache/
+
+# Distribution / packaging
+/venv/
+/dist
+/.temp/
+/.idea/
+/build
+storeyloss.egg-info/
+
+# local
+.vscode
